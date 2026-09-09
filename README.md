@@ -1,3 +1,3 @@
-This application will serve a huge purpose in the healthcare industry, in such a tech-savy world, it is difficult for our elderly community 
-to assist themselves which strips them of their independence and they have to completely rely on someone else to assist them. This app will be
-designed to give back the elderly their independence with an application that makes everything so easy hence the name EZ.
+EZ Healthcare is an accessible healthcare assistance application designed primarily for the elderly who struggle with modern technology. The goal is to restore independence by placing 
+commonly needed healthcare functions into one simple, centralized application. Users should be able to navigate using large buttons, simple language, voice commands, accessible visual
+settings, and minimal steps. The system will be older adults and users with visual, hearing or mobility limitations in mind. 
