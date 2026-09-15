@@ -1,0 +1,21 @@
+{
+  "expo": {
+    "name": "EZ Healthcare",
+    "slug": "ezhealthcare",
+    "version": "0.1.0",
+    "scheme": "ezhealthcare",
+    "platforms": [
+      "android",
+      "ios"
+    ],
+    "orientation": "default",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true
+    },
+    "plugins": [
+      "expo-router",
+      "expo-status-bar"
+    ]
+  }
+}
