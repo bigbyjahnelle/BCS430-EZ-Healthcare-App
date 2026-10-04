@@ -1,6 +1,7 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
 import {
   Alert,
+  Image,
   Pressable,
   StyleSheet,
   Text,
@@ -16,6 +17,8 @@ export default function HomeScreen() {
   return (
       <SafeAreaView style={styles.screen}>
         <View style={styles.content}>
+
+          {/* Top buttons and logo */}
           <View style={styles.row}>
             <Pressable
                 style={styles.roundButton}
@@ -33,6 +36,14 @@ export default function HomeScreen() {
 
               <Text style={styles.label}>Profile</Text>
             </Pressable>
+
+            <Image
+                source={require('../../assets/images/ez-logo.png')}
+                style={styles.logo}
+                resizeMode="contain"
+                accessible={true}
+                accessibilityLabel="EZ Healthcare"
+            />
 
             <Pressable
                 style={styles.roundButton}
@@ -52,6 +63,7 @@ export default function HomeScreen() {
             </Pressable>
           </View>
 
+          {/* Ask EZ */}
           <Pressable
               style={styles.askCard}
               accessibilityRole="button"
@@ -74,6 +86,7 @@ export default function HomeScreen() {
             <Text style={styles.speakText}>Tap to Speak</Text>
           </Pressable>
 
+          {/* Feature buttons */}
           <View style={styles.features}>
             <View style={styles.cardRow}>
               <Pressable
@@ -140,22 +153,23 @@ export default function HomeScreen() {
             </View>
           </View>
 
+          {/* Bottom buttons */}
           <View style={styles.row}>
             <Pressable
                 style={styles.roundButton}
                 accessibilityRole="button"
-                onPress={() => showMessage('Profile')}
+                onPress={() => showMessage('Settings')}
             >
               <View style={styles.circle}>
                 <Ionicons
-                    name="person-outline"
+                    name="settings-outline"
                     size={30}
                     color="#17618E"
                     accessible={false}
                 />
               </View>
 
-              <Text style={styles.label}>Profile</Text>
+              <Text style={styles.label}>Settings</Text>
             </Pressable>
 
             <Pressable
@@ -175,6 +189,7 @@ export default function HomeScreen() {
               <Text style={styles.label}>Help</Text>
             </Pressable>
           </View>
+
         </View>
       </SafeAreaView>
   );
@@ -200,6 +215,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     gap: 12,
+  },
+
+  logo: {
+    width: 90,
+    height: 90,
   },
 
   roundButton: {
