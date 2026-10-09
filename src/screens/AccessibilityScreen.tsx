@@ -1,6 +1,7 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
 import { useRouter } from 'expo-router';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 type Category = {
@@ -51,21 +52,20 @@ const CATEGORIES: Category[] = [
 
 export default function AccessibilityScreen() {
   const router = useRouter();
+  const [isGridLayout, setIsGridLayout] = useState(true);
 
   return (
       <SafeAreaView style={styles.screen}>
-        <View style={styles.content}>
+        <ScrollView contentContainerStyle={styles.content}>
 
-          {/* Header */}
-          <View style={styles.header}>
+          {/* Top row: back button + title + layout toggle, same line */}
+          <View style={styles.topRow}>
             <Pressable
                 style={styles.backButton}
                 accessibilityRole="button"
                 accessibilityLabel="Back to Home"
                 onPress={() => router.back()}
             >
-
-
               <Ionicons
                   name="arrow-back-outline"
                   size={24}
@@ -74,60 +74,105 @@ export default function AccessibilityScreen() {
               />
             </Pressable>
 
-                        <Text style={styles.title}>Accessibility & Personalization</Text>
+            <Text style={styles.topRowTitle}>Accessibility</Text>
 
-                        <Text style={styles.subtitle}>Choose a category to adjust</Text>
+            <Pressable
+                style={styles.backButton}
+                accessibilityRole="button"
+                accessibilityLabel="Toggle layout"
+                onPress={() => setIsGridLayout((prev) => !prev)}
+            >
+              <Ionicons
+                  name={isGridLayout ? 'grid-outline' : 'list-outline'}
+                  size={22}
+                  color="#17618E"
+                  accessible={false}
+              />
+            </Pressable>
+          </View>
 
-            <Image
-                source={require('../../assets/images/ez-logo.png')}
-                style={styles.logo}
-                resizeMode="contain"
-                accessible={true}
-                accessibilityLabel="EZ Healthcare"
-            />
-
+          {/* Brand + subtitle, centered below */}
+          <View style={styles.header}>
             <Text style={styles.brand}>EZ HEALTHCARE</Text>
 
-
+            <Text style={styles.subtitle}>Choose a category to adjust</Text>
           </View>
 
-          {/* Category grid */}
-          <View style={styles.grid}>
-            {CATEGORIES.map((category) => (
-                <Pressable
-                    key={category.key}
-                    style={styles.card}
-                    accessibilityRole="button"
-                    accessibilityLabel={category.title}
-                    onPress={() => router.push({
-                      pathname: '/accessibility/[category]',
-                      params: {
-                        category: category.key,
-                        title: category.title,
-                        description: category.description,
-                        icon: category.icon,
-                      },
-                    })}
-                >
-                  <View style={styles.cardIconCircle}>
-                    <Ionicons
-                        name={category.icon}
-                        size={26}
-                        color="#17618E"
-                        accessible={false}
-                    />
-                  </View>
+          {isGridLayout ? (
+              <View style={styles.grid}>
+                {CATEGORIES.map((category) => (
+                    <Pressable
+                        key={category.key}
+                        style={styles.gridCard}
+                        accessibilityRole="button"
+                        accessibilityLabel={category.title}
+                        onPress={() => router.push({
+                          pathname: '/accessibility/[category]',
+                          params: {
+                            category: category.key,
+                            title: category.title,
+                            description: category.description,
+                            icon: category.icon,
+                          },
+                        })}
+                    >
+                      <View style={styles.gridCardIconCircle}>
+                        <Ionicons
+                            name={category.icon}
+                            size={40}
+                            color="#17618E"
+                            accessible={false}
+                        />
+                      </View>
 
-                  <Text style={styles.cardTitle}>{category.title}</Text>
+                      <Text style={styles.gridCardTitle}>{category.title}</Text>
 
-                  <Text style={styles.cardDescription}>
-                    {category.description}
-                  </Text>
-                </Pressable>
-            ))}
-          </View>
+                      <Text style={styles.gridCardDescription}>
+                        {category.description}
+                      </Text>
+                    </Pressable>
+                ))}
+              </View>
+          ) : (
+              <View style={styles.list}>
+                {CATEGORIES.map((category) => (
+                    <Pressable
+                        key={category.key}
+                        style={styles.card}
+                        accessibilityRole="button"
+                        accessibilityLabel={category.title}
+                        onPress={() => router.push({
+                          pathname: '/accessibility/[category]',
+                          params: {
+                            category: category.key,
+                            title: category.title,
+                            description: category.description,
+                            icon: category.icon,
+                          },
+                        })}
+                    >
+                      <View style={styles.cardIconCircle}>
+                        <Ionicons
+                            name={category.icon}
+                            size={40}
+                            color="#17618E"
+                            accessible={false}
+                        />
+                      </View>
 
-        </View>
+                      <View style={styles.cardTextBlock}>
+                        <Text style={styles.cardTitle}>{category.title}</Text>
+
+                        <Text style={styles.cardDescription}>
+                          {category.description}
+                        </Text>
+                      </View>
+                    </Pressable>
+                ))}
+              </View>
+          )}
+
+        </ScrollView>
       </SafeAreaView>
   );
 }
@@ -139,74 +184,79 @@ const styles = StyleSheet.create({
   },
 
   content: {
-    flex: 1,
+    flexGrow: 1,
     width: '100%',
     maxWidth: 540,
     alignSelf: 'center',
-    padding: 16,
-    gap: 10,
+    paddingTop: 5,
+    paddingBottom: 20,
+    paddingLeft: 20,
+    paddingRight: 20,
+    gap: 18,
   },
 
-  header: {
+  topRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
+    justifyContent: 'space-between',
+    gap: 0,
   },
 
   backButton: {
-    alignSelf: 'flex-start',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#F7F8F3',
     borderWidth: 1,
     borderColor: '#DDE4E2',
-    marginBottom: 4,
   },
 
-  logo: {
-    width: 160,
-    height: 160,
-  },
-
-  brand: {
-    fontSize: 13,
-    fontWeight: '700',
-    letterSpacing: 1.2,
-    color: '#008060',
-    textAlign: 'center',
-  },
-
-  title: {
-    fontSize: 23,
+  topRowTitle: {
+    flex: 1,
+    fontSize: 34,
     fontWeight: '800',
     color: '#0B2236',
     textAlign: 'center',
-    marginTop: 2,
+  },
+
+  header: {
+    alignItems: 'center',
+    gap: 4,
+  },
+
+  brand: {
+    fontSize: 19,
+    fontWeight: '700',
+    letterSpacing: 1.3,
+    color: '#008060',
+    textAlign: 'center',
+    marginTop: -5,
   },
 
   subtitle: {
-    fontSize: 15,
+    fontSize: 18,
     color: '#44525A',
     textAlign: 'center',
   },
 
+  // Grid layout styles
   grid: {
-    flex: 1,
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: 14,
   },
 
-  card: {
+  gridCard: {
     flexBasis: '47%',
     flexGrow: 1,
+    minHeight: 130,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    padding: 12,
-    borderRadius: 20,
+    gap: 10,
+    padding: 18,
+    borderRadius: 24,
     backgroundColor: '#F7F8F3',
     borderWidth: 1,
     borderColor: '#DDE4E2',
@@ -215,13 +265,12 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.12,
     shadowRadius: 6,
-    minHeight: 170,
   },
 
-  cardIconCircle: {
-    width: 60,
-    height: 60,
-    borderRadius: 24,
+  gridCardIconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 35,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#FFFFFF',
@@ -229,16 +278,67 @@ const styles = StyleSheet.create({
     borderColor: '#DDE4E2',
   },
 
-  cardTitle: {
-    fontSize: 16,
+  gridCardTitle: {
+    fontSize: 19,
     fontWeight: '700',
     color: '#0B2236',
     textAlign: 'center',
   },
 
-  cardDescription: {
-    fontSize: 12,
+  gridCardDescription: {
+    fontSize: 15,
     color: '#44525A',
     textAlign: 'center',
+  },
+
+  // Horizontal stacked layout styles
+  list: {
+    gap: 14,
+  },
+
+  card: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    padding: 18,
+    borderRadius: 24,
+    backgroundColor: '#F7F8F3',
+    borderWidth: 1,
+    borderColor: '#DDE4E2',
+    elevation: 3,
+    shadowColor: '#0B2236',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+  },
+
+  cardIconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 35,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#DDE4E2',
+  },
+
+  cardTextBlock: {
+    flex: 1,
+    gap: 4,
+  },
+
+  cardTitle: {
+    fontSize: 21,
+    fontWeight: '700',
+    color: '#0B2236',
+    textAlign: 'left',
+  },
+
+  cardDescription: {
+    fontSize: 19,
+    color: '#44525A',
+    textAlign: 'left',
   },
 });

@@ -51,7 +51,7 @@ export default function HomeScreen() {
             <Pressable
                 style={styles.roundButton}
                 accessibilityRole="button"
-                onPress={() => showMessage('Log Out')}
+                onPress={() => router.push('/login')}
             >
               <View style={styles.circle}>
                 <Ionicons
