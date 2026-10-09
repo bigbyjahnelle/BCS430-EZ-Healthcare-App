@@ -1,4 +1,5 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
+import { useRouter } from 'expo-router';
 import {
   Alert,
   Image,
@@ -14,6 +15,8 @@ function showMessage(feature: string) {
 }
 
 export default function HomeScreen() {
+  const router = useRouter();
+
   return (
       <SafeAreaView style={styles.screen}>
         <View style={styles.content}>
@@ -158,7 +161,7 @@ export default function HomeScreen() {
             <Pressable
                 style={styles.roundButton}
                 accessibilityRole="button"
-                onPress={() => showMessage('Settings')}
+                onPress={() => router.push('/accessibility')}
             >
               <View style={styles.circle}>
                 <Ionicons
