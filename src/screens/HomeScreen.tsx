@@ -20,7 +20,6 @@ export default function HomeScreen() {
   return (
       <SafeAreaView style={styles.screen}>
         <View style={styles.content}>
-
           {/* Top buttons and logo */}
           <View style={styles.row}>
             <Pressable
@@ -36,7 +35,6 @@ export default function HomeScreen() {
                     accessible={false}
                 />
               </View>
-
               <Text style={styles.label}>Profile</Text>
             </Pressable>
 
@@ -61,7 +59,6 @@ export default function HomeScreen() {
                     accessible={false}
                 />
               </View>
-
               <Text style={styles.label}>Log Out</Text>
             </Pressable>
           </View>
@@ -95,7 +92,7 @@ export default function HomeScreen() {
               <Pressable
                   style={styles.card}
                   accessibilityRole="button"
-                  onPress={() => showMessage('Medications')}
+                  onPress={() => router.push('/medications')}
               >
                 <Ionicons
                     name="medkit-outline"
@@ -103,7 +100,6 @@ export default function HomeScreen() {
                     color="#17618E"
                     accessible={false}
                 />
-
                 <Text style={styles.label}>Medications</Text>
               </Pressable>
 
@@ -118,7 +114,6 @@ export default function HomeScreen() {
                     color="#17618E"
                     accessible={false}
                 />
-
                 <Text style={styles.label}>Appointments</Text>
               </Pressable>
             </View>
@@ -135,7 +130,6 @@ export default function HomeScreen() {
                     color="#17618E"
                     accessible={false}
                 />
-
                 <Text style={styles.label}>Messages</Text>
               </Pressable>
 
@@ -150,7 +144,6 @@ export default function HomeScreen() {
                     color="#17618E"
                     accessible={false}
                 />
-
                 <Text style={styles.label}>Test Results</Text>
               </Pressable>
             </View>
@@ -171,7 +164,6 @@ export default function HomeScreen() {
                     accessible={false}
                 />
               </View>
-
               <Text style={styles.label}>Settings</Text>
             </Pressable>
 
@@ -188,11 +180,9 @@ export default function HomeScreen() {
                     accessible={false}
                 />
               </View>
-
               <Text style={styles.label}>Help</Text>
             </Pressable>
           </View>
-
         </View>
       </SafeAreaView>
   );
@@ -203,7 +193,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F7F8F3',
   },
-
   content: {
     flex: 1,
     width: '100%',
@@ -212,19 +201,16 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 16,
   },
-
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     gap: 12,
   },
-
   logo: {
     width: 90,
     height: 90,
   },
-
   roundButton: {
     minWidth: 64,
     minHeight: 64,
@@ -232,7 +218,6 @@ const styles = StyleSheet.create({
     gap: 6,
     padding: 4,
   },
-
   circle: {
     width: 56,
     height: 56,
@@ -248,14 +233,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.12,
     shadowRadius: 6,
   },
-
   label: {
     fontSize: 18,
     fontWeight: '600',
     textAlign: 'center',
     color: '#0B2236',
   },
-
   askCard: {
     alignItems: 'center',
     gap: 8,
@@ -270,18 +253,15 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.12,
     shadowRadius: 6,
   },
-
   heading: {
     fontSize: 32,
     fontWeight: '800',
     textAlign: 'center',
     color: '#17618E',
   },
-
   greenText: {
     color: '#008060',
   },
-
   voiceCircle: {
     width: 72,
     height: 72,
@@ -290,24 +270,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#0072AA',
   },
-
   speakText: {
     fontSize: 20,
     textAlign: 'center',
     color: '#0B2236',
   },
-
   features: {
     flex: 1,
     gap: 12,
   },
-
   cardRow: {
     flex: 1,
     flexDirection: 'row',
     gap: 12,
   },
-
   card: {
     flex: 1,
     minHeight: 100,
