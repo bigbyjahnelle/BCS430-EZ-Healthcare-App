@@ -232,7 +232,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1.3,
     color: '#008060',
     textAlign: 'center',
-    marginTop: -5,
+    marginTop: -9,
   },
 
   subtitle: {
