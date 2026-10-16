@@ -1,24 +1,29 @@
+import { mobileDemoRouter } from "./mobileDemo.js";
 import "dotenv/config";
 import express from "express";
 import pg from "pg";
+import epicRouter from "./epic.js";
 
 const { Pool } = pg;
 
 const app = express();
 const port = Number(process.env.PORT ?? 3001);
 
-// Reads the PostgreSQL connection settings from .env.
 const pool = new Pool({
     connectionTimeoutMillis: 5000,
 });
 
 app.use(express.json());
 
+app.use("/api/mobile", mobileDemoRouter);
+
+// Epic sign-in and sandbox data routes.
+app.use("/api/epic", epicRouter);
+
 pool.on("error", (error) => {
     console.error("Unexpected database connection error:", error.message);
 });
 
-// Check that the backend can communicate with PostgreSQL.
 app.get("/api/health", async (_req, res) => {
     try {
         await pool.query("SELECT 1");
@@ -38,26 +43,25 @@ app.get("/api/health", async (_req, res) => {
     }
 });
 
-// Demo endpoint: only returns Matt's fictional sample medication.
-// Real patient access will require authentication later.
+// Existing sample data for the mobile prototype.
 app.get("/api/demo/medications", async (_req, res) => {
     try {
         const result = await pool.query(
             `
-        SELECT
-          m.id,
-          m.name,
-          m.dosage,
-          m.frequency,
-          m.instructions,
-          m.source,
-          m.last_synced_at
-        FROM medications AS m
-        JOIN users AS u ON u.id = m.user_id
-        WHERE u.email = $1
-          AND m.source = $2
-        ORDER BY m.id
-      `,
+                SELECT
+                    m.id,
+                    m.name,
+                    m.dosage,
+                    m.frequency,
+                    m.instructions,
+                    m.source,
+                    m.last_synced_at
+                FROM medications AS m
+                         JOIN users AS u ON u.id = m.user_id
+                WHERE u.email = $1
+                  AND m.source = $2
+                ORDER BY m.id
+            `,
             ["matt@example.test", "sample"]
         );
 
@@ -78,12 +82,10 @@ async function startServer() {
         await pool.query("SELECT 1");
         console.log("Connected to PostgreSQL!");
 
-        // Keep this demo server accessible only from this computer.
         const server = app.listen(port, "127.0.0.1", () => {
             console.log(`EZ Healthcare backend: http://localhost:${port}`);
-            console.log(`Health check: http://localhost:${port}/api/health`);
             console.log(
-                `Medications: http://localhost:${port}/api/demo/medications`
+                `Epic sandbox sign-in: http://localhost:${port}/api/epic/login`
             );
         });
 
