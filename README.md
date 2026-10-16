@@ -4,7 +4,7 @@ This guide explains how to run the EZ Healthcare demonstration on your own compu
 
 The demo uses an Android emulator, a local backend, PostgreSQL, and Epic's FHIR sandbox. All healthcare records used for this demonstration are synthetic test data.
 
-**First time:** complete Sections 1–10 in order. **Already set up:** jump to [Demo-day startup](#11-demo-day-startup-after-first-time-setup).
+**First time:** complete Sections 1–10 in order. **Already set up:** jump to [starting-the-application](#11-starting-the-application).
 
 These instructions document the team's local demonstration setup. The Mac workflow has been used during development. The Windows installation path is included for teammates but still needs a rehearsal on their computer. The repository's committed package versions should be retained.
 
