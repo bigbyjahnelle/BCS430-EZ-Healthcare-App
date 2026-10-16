@@ -20,11 +20,9 @@ These instructions document the team's local demonstration setup. The Mac workfl
 8. [Install Android Studio and create an emulator](#8-install-android-studio-and-create-an-emulator)
 9. [Start the backend and Expo](#9-start-the-backend-and-expo)
 10. [Connect Epic and display medications](#10-connect-epic-and-display-medications)
-11. [Demo-day startup](#11-demo-day-startup-after-first-time-setup)
-12. [Record the presentation demo](#12-record-the-presentation-demo)
-13. [Stop the demo and update the project](#13-stop-the-demo-and-update-the-project)
-14. [Troubleshooting](#14-troubleshooting)
-15. [Reference links](#15-reference-links)
+11. [Starting the application](#11-starting-the-application)
+12. [Troubleshooting](#12-troubleshooting)
+13. [Reference links](#13-reference-links)
 
 ## 1. Understand the pieces
 
@@ -507,7 +505,7 @@ The Epic access token remains in the backend. The mobile pairing flow uses a sep
 - [ ] Mobile screen identifies the data as Epic sandbox data.
 - [ ] Historical/completed orders retain their returned status.
 
-## 11. Demo-day startup after first-time setup
+## 11. Starting the application
 
 You do not need to reinstall software, rerun database creation, or recreate `.env` each time.
 
@@ -522,43 +520,7 @@ You do not need to reinstall software, rerun database creation, or recreate `.en
 9. On the emulator, open Medications, enter the code, and connect. Use **Enter a New Code** first if an older snapshot is still displayed.
 10. Confirm the records and their statuses before starting the recording.
 
-Allow time for a full rehearsal before presenting. A previous successful login does not guarantee that today's session or code is still valid.
-
-## 12. Record the presentation demo
-
-Prepare the emulator and both running servers before recording. A short demonstration can show:
-
-1. EZ Healthcare's home screen.
-2. Successful Epic authorization in the desktop browser.
-3. The patient or medication JSON response, if useful for explaining FHIR.
-4. The mobile pairing step.
-5. The medication screen showing the synthetic patient's records, their source, and order status.
-
-Explain that the backend retrieves authorized sandbox data and the mobile screen displays a demonstration snapshot. This demonstrates preliminary integration feasibility; it does not establish production readiness, complete record access, or completed accessibility/security validation.
-
-Keep `.env`, developer tools containing tokens, and authorization callback query strings out of the recording. The public synthetic patient details are intended for this sandbox demonstration.
-
-If the only returned medication order is `completed`, describe it as a **historical medication order**. Do not label it an active prescription. A FHIR warning about incomplete authorized records should not be presented as proof that the response contains the entire medical record.
-
-## 13. Stop the demo and update the project
-
-### Shut down
-
-1. Click inside the Expo terminal and press **Ctrl+C**.
-2. Click inside the backend terminal and press **Ctrl+C**. On Mac this is Control, not Command.
-3. Close the emulator. Stop PostgreSQL if you no longer need it and no other work depends on it.
-
-Database records stay on disk. Backend sessions and snapshots do not survive restarting the backend.
-
-### Get newer code
-
-Use your team's normal Git pull/update workflow. If using a ZIP download, download the correct new branch version and reopen that extracted project. Your local `.env` will not be included in a fresh download; create it again or privately copy your existing configuration into the new `backend` folder.
-
-Run `npm ci` in the root and `backend` when their dependency files change. Keep existing database contents unless the developer supplies a migration or explicitly directs a reset.
-
-Commit source code and matching `package.json`/`package-lock.json` changes. Do not commit `.env`, `node_modules`, or tokens.
-
-## 14. Troubleshooting
+## 12. Troubleshooting
 
 ### “localhost refused to connect”
 
