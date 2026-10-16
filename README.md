@@ -634,7 +634,7 @@ The observed medication response included a warning that the authorized informat
 
 Send the developer your operating system, the step you reached, and the exact error from the relevant terminal. State whether `/api/health` works. Remove passwords, tokens, cookies, and authorization codes before sharing screenshots or logs.
 
-## 15. Reference links
+## 13. Reference links
 
 Installation screens can vary between versions. These are the official references for the supporting tools:
 
