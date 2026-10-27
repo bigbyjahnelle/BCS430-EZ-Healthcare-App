@@ -1,6 +1,7 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
+import type { ComponentProps } from 'react';
 import {
   Alert,
   Image,
@@ -11,9 +12,9 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  TextInputProps,
   View,
 } from 'react-native';
+import type { TextInputProps } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 function showMessage(feature: string) {
@@ -22,7 +23,7 @@ function showMessage(feature: string) {
 
 type FieldProps = {
   label: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: ComponentProps<typeof Ionicons>['name'];
 } & TextInputProps;
 
 function Field({ label, icon, ...inputProps }: FieldProps) {
@@ -30,21 +31,21 @@ function Field({ label, icon, ...inputProps }: FieldProps) {
 
   return (
       <View style={[styles.field, focused && styles.fieldFocused]}>
-          <Ionicons
-              name={icon}
-              size={20}
-              color="#17618E"
-              accessible={false}
-          />
-          <TextInput
-              style={styles.input}
-              placeholder={label}
-              placeholderTextColor="#5B88A5"
-              accessibilityLabel={label}
-              onFocus={() => setFocused(true)}
-              onBlur={() => setFocused(false)}
-              {...inputProps}
-          />
+        <Ionicons
+            name={icon}
+            size={20}
+            color="#17618E"
+            accessible={false}
+        />
+        <TextInput
+            style={styles.input}
+            placeholder={label}
+            placeholderTextColor="#5B88A5"
+            accessibilityLabel={label}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
+            {...inputProps}
+        />
       </View>
   );
 }
@@ -67,7 +68,6 @@ export default function SignUpScreen() {
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
           >
-
             <View style={styles.header}>
               <Text style={styles.title}>Sign Up</Text>
 
@@ -139,11 +139,11 @@ export default function SignUpScreen() {
                   onPress={() => router.push('/login')}
               >
                 <Text style={styles.secondaryLinkText}>
-                  Already have an account? <Text style={styles.secondaryLinkAccent}>Log In</Text>
+                  Already have an account?{' '}
+                  <Text style={styles.secondaryLinkAccent}>Log In</Text>
                 </Text>
               </Pressable>
             </View>
-
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>

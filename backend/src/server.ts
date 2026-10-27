@@ -3,6 +3,7 @@ import "dotenv/config";
 import express from "express";
 import pg from "pg";
 import epicRouter from "./epic.js";
+import { nativeAuthRouter } from "./nativeAuth.js";
 
 const { Pool } = pg;
 
@@ -14,6 +15,7 @@ const pool = new Pool({
 });
 
 app.use(express.json());
+app.use("/api/native", nativeAuthRouter);
 
 app.use("/api/mobile", mobileDemoRouter);
 

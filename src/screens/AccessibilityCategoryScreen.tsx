@@ -1,7 +1,10 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import type { ComponentProps } from 'react';
 import { StyleSheet, Text, View, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+type IconName = ComponentProps<typeof Ionicons>['name'];
 
 export default function AccessibilityCategoryScreen() {
   const router = useRouter();
@@ -14,7 +17,6 @@ export default function AccessibilityCategoryScreen() {
   return (
       <SafeAreaView style={styles.screen}>
         <View style={styles.content}>
-
           <Pressable
               style={styles.backButton}
               accessibilityRole="button"
@@ -32,7 +34,7 @@ export default function AccessibilityCategoryScreen() {
           <View style={styles.body}>
             <View style={styles.iconCircle}>
               <Ionicons
-                  name={icon as keyof typeof Ionicons.glyphMap}
+                  name={(icon || 'accessibility-outline') as IconName}
                   size={44}
                   color="#17618E"
                   accessible={false}
@@ -40,7 +42,6 @@ export default function AccessibilityCategoryScreen() {
             </View>
 
             <Text style={styles.title}>{title}</Text>
-
             <Text style={styles.subtitle}>{description}</Text>
 
             <View style={styles.placeholder}>
@@ -49,7 +50,6 @@ export default function AccessibilityCategoryScreen() {
               </Text>
             </View>
           </View>
-
         </View>
       </SafeAreaView>
   );
@@ -60,7 +60,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F7F8F3',
   },
-
   content: {
     flex: 1,
     width: '100%',
@@ -69,7 +68,6 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 24,
   },
-
   backButton: {
     alignSelf: 'flex-start',
     width: 40,
@@ -81,13 +79,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#DDE4E2',
   },
-
   body: {
     alignItems: 'center',
     gap: 10,
     marginTop: 30,
   },
-
   iconCircle: {
     width: 88,
     height: 88,
@@ -99,20 +95,17 @@ const styles = StyleSheet.create({
     borderColor: '#DDE4E2',
     marginBottom: 8,
   },
-
   title: {
     fontSize: 25,
     fontWeight: '800',
     color: '#0B2236',
     textAlign: 'center',
   },
-
   subtitle: {
     fontSize: 16,
     color: '#44525A',
     textAlign: 'center',
   },
-
   placeholder: {
     marginTop: 24,
     padding: 20,
@@ -121,7 +114,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#DDE4E2',
   },
-
   placeholderText: {
     fontSize: 16,
     color: '#44525A',

@@ -1,6 +1,7 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
+import type { ComponentProps } from 'react';
 import {
   Alert,
   Image,
@@ -11,9 +12,9 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  TextInputProps,
   View,
 } from 'react-native';
+import type { TextInputProps } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 function showMessage(feature: string) {
@@ -22,7 +23,7 @@ function showMessage(feature: string) {
 
 type FieldProps = {
   label: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: ComponentProps<typeof Ionicons>['name'];
 } & TextInputProps;
 
 function Field({ label, icon, ...inputProps }: FieldProps) {
@@ -30,21 +31,21 @@ function Field({ label, icon, ...inputProps }: FieldProps) {
 
   return (
       <View style={[styles.field, focused && styles.fieldFocused]}>
-          <Ionicons
-              name={icon}
-              size={20}
-              color="#17618E"
-              accessible={false}
-          />
-          <TextInput
-              style={styles.input}
-              placeholder={label}
-              placeholderTextColor="#5B88A5"
-              accessibilityLabel={label}
-              onFocus={() => setFocused(true)}
-              onBlur={() => setFocused(false)}
-              {...inputProps}
-          />
+        <Ionicons
+            name={icon}
+            size={20}
+            color="#17618E"
+            accessible={false}
+        />
+        <TextInput
+            style={styles.input}
+            placeholder={label}
+            placeholderTextColor="#5B88A5"
+            accessibilityLabel={label}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
+            {...inputProps}
+        />
       </View>
   );
 }
@@ -65,10 +66,8 @@ export default function LoginScreen() {
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
           >
-
             <View style={styles.header}>
               <Text style={styles.title}>Login</Text>
-
               <Image
                   source={require('../../assets/images/ez-logo.png')}
                   style={styles.logo}
@@ -122,11 +121,11 @@ export default function LoginScreen() {
                   onPress={() => router.push('/signup')}
               >
                 <Text style={styles.secondaryLinkText}>
-                  Don't have an account? <Text style={styles.secondaryLinkAccent}>Sign Up</Text>
+                  Don't have an account?{' '}
+                  <Text style={styles.secondaryLinkAccent}>Sign Up</Text>
                 </Text>
               </Pressable>
             </View>
-
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -138,7 +137,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F7F8F3',
   },
-
   content: {
     flexGrow: 1,
     width: '100%',
@@ -149,30 +147,24 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
     gap: 28,
   },
-
   header: {
     alignItems: 'center',
     gap: 12,
   },
-
   title: {
     fontSize: 34,
-    fontWeight: 'bold',
     letterSpacing: 1,
     color: '#17618E',
     textAlign: 'center',
     fontWeight: 300,
   },
-
   logo: {
     width: 210,
     height: 210,
   },
-
   form: {
     gap: 14,
   },
-
   field: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -184,12 +176,10 @@ const styles = StyleSheet.create({
     borderColor: '#17618E',
     backgroundColor: '#F7F8F3',
   },
-
   fieldFocused: {
     borderWidth: 2,
     backgroundColor: '#FFFFFF',
   },
-
   input: {
     flex: 1,
     fontSize: 15,
@@ -197,7 +187,6 @@ const styles = StyleSheet.create({
     color: '#0B2236',
     paddingVertical: 12,
   },
-
   primaryButton: {
     minHeight: 56,
     alignItems: 'center',
@@ -211,38 +200,32 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.35,
     shadowRadius: 4,
   },
-
   primaryButtonText: {
     fontSize: 16,
     fontWeight: '600',
     letterSpacing: 1.5,
     color: '#FFFFFF',
   },
-
   links: {
     alignItems: 'center',
     gap: 2,
   },
-
   linkButton: {
     minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 12,
   },
-
   linkText: {
     fontSize: 15,
     color: '#17618E',
     textAlign: 'center',
   },
-
   secondaryLinkText: {
     fontSize: 14,
     color: '#44525A',
     textAlign: 'center',
   },
-
   secondaryLinkAccent: {
     fontWeight: '700',
     color: '#17618E',

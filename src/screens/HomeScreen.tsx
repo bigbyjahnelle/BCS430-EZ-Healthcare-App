@@ -1,33 +1,33 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
 import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
+import type { ComponentProps } from 'react';
 import {
   Alert,
   Image,
-  NativeScrollEvent,
-  NativeSyntheticEvent,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import type {
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const BLUE = '#17618E';
 const GREEN = '#008060';
 
-// Sizes
 const CORNER_CIRCLE = 72;
 const LOGO_SIZE = 120;
 const TOP_BAR_HEIGHT = 124;
 const BOTTOM_BAR_HEIGHT = 112;
 
-// true  = Profile / Log Out stay at the top while you scroll
-// false = they scroll away with the page (Settings / Help always stay at the bottom)
 const STICKY_TOP_BUTTONS = true;
 
-type IconName = keyof typeof Ionicons.glyphMap;
+type IconName = ComponentProps<typeof Ionicons>['name'];
 
 type Service = {
   title: string;
@@ -53,12 +53,11 @@ function showMessage(feature: string) {
   Alert.alert(feature, 'This feature is not connected yet.');
 }
 
-// Big round corner button with its label underneath
 function CornerButton({
-  label,
-  icon,
-  onPress,
-}: {
+                        label,
+                        icon,
+                        onPress,
+                      }: {
   label: string;
   icon: IconName;
   onPress: () => void;
@@ -92,14 +91,26 @@ export default function HomeScreen() {
   const [scrolled, setScrolled] = useState(false);
   const [atEnd, setAtEnd] = useState(false);
 
-  // The first screen is exactly one screen tall, so "More Services" starts below the fold
-  const topSpace = STICKY_TOP_BUTTONS ? insets.top + TOP_BAR_HEIGHT + 8 : insets.top + 8;
-  const firstScreenHeight = Math.max(0, viewH - topSpace - BOTTOM_BAR_HEIGHT - insets.bottom);
+  const topSpace = STICKY_TOP_BUTTONS
+      ? insets.top + TOP_BAR_HEIGHT + 8
+      : insets.top + 8;
 
-  const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+  const firstScreenHeight = Math.max(
+      0,
+      viewH - topSpace - BOTTOM_BAR_HEIGHT - insets.bottom
+  );
+
+  const handleScroll = (
+      e: NativeSyntheticEvent<NativeScrollEvent>
+  ) => {
+    const { contentOffset, contentSize, layoutMeasurement } =
+        e.nativeEvent;
+
     setScrolled(contentOffset.y > 20);
-    setAtEnd(contentOffset.y + layoutMeasurement.height >= contentSize.height - 40);
+    setAtEnd(
+        contentOffset.y + layoutMeasurement.height >=
+        contentSize.height - 40
+    );
   };
 
   const openService = (service: Service) => {
@@ -129,7 +140,6 @@ export default function HomeScreen() {
                       accessible={false}
                   />
                 </View>
-
                 <Text style={styles.cardTitle}>{service.title}</Text>
               </View>
             </Pressable>
@@ -145,7 +155,6 @@ export default function HomeScreen() {
             onPress={() => showMessage('Profile')}
         />
 
-        {/* The logo hides once you scroll down */}
         {scrolled && STICKY_TOP_BUTTONS ? (
             <View style={styles.logo} />
         ) : (
@@ -189,12 +198,11 @@ export default function HomeScreen() {
               }
             }}
         >
-          {/* First screen */}
-          <View style={[styles.firstScreen, { minHeight: firstScreenHeight }]}>
-            {/* Top buttons scroll with the page when they are not sticky */}
+          <View
+              style={[styles.firstScreen, { minHeight: firstScreenHeight }]}
+          >
             {!STICKY_TOP_BUTTONS ? topRow : null}
 
-            {/* Ask EZ */}
             <Pressable
                 style={styles.cardShadow}
                 accessibilityRole="button"
@@ -219,11 +227,9 @@ export default function HomeScreen() {
               </View>
             </Pressable>
 
-            {/* Main services */}
             {renderServices(MAIN_SERVICES)}
           </View>
 
-          {/* More services */}
           <View style={styles.sectionHeader}>
             <View style={styles.sectionDash} />
             <Text style={styles.sectionTitle} accessibilityRole="header">
@@ -235,20 +241,23 @@ export default function HomeScreen() {
           {renderServices(MORE_SERVICES)}
         </ScrollView>
 
-        {/* Top bar (stays in place) */}
         {STICKY_TOP_BUTTONS ? (
             <View
                 style={[
                   styles.topBar,
-                  { paddingTop: insets.top, borderBottomWidth: scrolled ? 1 : 0 },
+                  {
+                    paddingTop: insets.top,
+                    borderBottomWidth: scrolled ? 1 : 0,
+                  },
                 ]}
             >
               {topRow}
             </View>
         ) : null}
 
-        {/* Bottom bar (always stays in place) */}
-        <View style={[styles.bottomBar, { paddingBottom: insets.bottom }]}>
+        <View
+            style={[styles.bottomBar, { paddingBottom: insets.bottom }]}
+        >
           <View style={styles.bottomRow}>
             <CornerButton
                 label="Settings"
@@ -263,7 +272,9 @@ export default function HomeScreen() {
                     style={styles.scrollHint}
                     accessibilityRole="button"
                     accessibilityLabel="Keep scrolling. Tap to scroll down."
-                    onPress={() => scrollRef.current?.scrollToEnd({ animated: true })}
+                    onPress={() =>
+                        scrollRef.current?.scrollToEnd({ animated: true })
+                    }
                 >
                   <View style={styles.chevrons}>
                     <Ionicons
@@ -309,7 +320,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F7F8F3',
   },
-
   content: {
     width: '100%',
     maxWidth: 540,
@@ -318,12 +328,9 @@ const styles = StyleSheet.create({
     paddingRight: 20,
     gap: 18,
   },
-
   firstScreen: {
     gap: 18,
   },
-
-  // Top and bottom bars
   topBar: {
     position: 'absolute',
     top: 0,
@@ -332,7 +339,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#F7F8F3',
     borderBottomColor: '#DDE4E2',
   },
-
   bottomBar: {
     position: 'absolute',
     bottom: 0,
@@ -342,7 +348,6 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#DDE4E2',
   },
-
   topRow: {
     width: '100%',
     maxWidth: 540,
@@ -353,7 +358,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-
   bottomRow: {
     width: '100%',
     maxWidth: 540,
@@ -364,20 +368,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-
   logo: {
     width: LOGO_SIZE,
     height: LOGO_SIZE,
   },
-
-  // Corner buttons
   cornerButton: {
     minWidth: 80,
     alignItems: 'center',
     gap: 6,
     padding: 4,
   },
-
   cornerCircle: {
     width: CORNER_CIRCLE,
     height: CORNER_CIRCLE,
@@ -389,45 +389,36 @@ const styles = StyleSheet.create({
     borderColor: '#DDE4E2',
     ...shadow,
   },
-
   cornerLabel: {
     fontSize: 18,
     fontWeight: '600',
     textAlign: 'center',
     color: '#0B2236',
   },
-
-  // Keep Scrolling hint
   scrollHint: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 2,
   },
-
   chevrons: {
     height: 40,
     alignItems: 'center',
   },
-
   secondChevron: {
     marginTop: -16,
   },
-
   scrollText: {
     fontSize: 16,
     fontWeight: '600',
     color: '#44525A',
     textAlign: 'center',
   },
-
-  // Cards (same look as the Accessibility cards)
   cardShadow: {
     borderRadius: 24,
     backgroundColor: '#F7F8F3',
     ...shadow,
   },
-
   askCard: {
     alignItems: 'center',
     gap: 8,
@@ -438,18 +429,15 @@ const styles = StyleSheet.create({
     borderColor: '#DDE4E2',
     overflow: 'hidden',
   },
-
   heading: {
     fontSize: 32,
     fontWeight: '800',
     textAlign: 'center',
     color: BLUE,
   },
-
   greenText: {
     color: GREEN,
   },
-
   voiceCircle: {
     width: 72,
     height: 72,
@@ -458,24 +446,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#0072AA',
   },
-
   speakText: {
     fontSize: 20,
     textAlign: 'center',
     color: '#0B2236',
   },
-
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 14,
   },
-
   gridItem: {
     flexBasis: '47%',
     flexGrow: 1,
   },
-
   gridCard: {
     flex: 1,
     minHeight: 150,
@@ -489,7 +473,6 @@ const styles = StyleSheet.create({
     borderColor: '#DDE4E2',
     overflow: 'hidden',
   },
-
   iconCircle: {
     width: 72,
     height: 72,
@@ -500,32 +483,26 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#DDE4E2',
   },
-
   cardTitle: {
     fontSize: 19,
     fontWeight: '700',
     color: '#0B2236',
     textAlign: 'center',
   },
-
-  // "More Services" heading
   sectionHeader: {
     gap: 8,
     marginTop: 14,
   },
-
   sectionDash: {
     width: 44,
     height: 5,
     borderRadius: 3,
     backgroundColor: GREEN,
   },
-
   sectionTitle: {
     fontSize: 30,
     fontWeight: '800',
   },
-
   sectionBlue: {
     color: BLUE,
   },

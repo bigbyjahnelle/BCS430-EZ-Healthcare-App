@@ -4,6 +4,10 @@ import express from "express";
 import type { ErrorRequestHandler } from "express";
 import session from "express-session";
 import { prepareMobileDemo } from "./mobileDemo.js";
+import {
+    beginNativeLogin,
+    completeNativeLogin,
+} from "./nativeAuth.js";
 
 declare module "express-session" {
     interface SessionData {
@@ -11,7 +15,9 @@ declare module "express-session" {
             state: string;
             verifier: string;
             createdAt: number;
+            mobileAttemptId?: string;
         };
+
         epicConnection?: {
             accessToken: string;
             patientId: string;
@@ -39,7 +45,7 @@ if (!clientId || !redirectUri || !fhirBaseUrl) {
     throw new Error("Missing Epic settings in backend/.env.");
 }
 
-// This implementation is specifically for the local sandbox demo.
+// This implementation is specifically for the local sandbox.
 if (
     fhirBaseUrl !== sandboxBase ||
     redirectUri !== "http://localhost:3001/api/epic/callback"
@@ -56,22 +62,38 @@ epicRouter.use(
         cookie: {
             httpOnly: true,
             sameSite: "lax",
-            secure: false, // Local HTTP demo only.
+            secure: false, // Local HTTP sandbox only.
             path: "/api/epic",
             maxAge: 60 * 60 * 1000,
         },
     })
 );
 
-// Do not cache authentication pages or returned sandbox records.
+// Do not cache authentication pages or sandbox records.
 epicRouter.use((_req, res, next) => {
     res.setHeader("Cache-Control", "no-store");
     res.setHeader("Referrer-Policy", "no-referrer");
     next();
 });
 
-// Start Epic's patient sign-in process.
+// Start Epic's patient authorization process.
 epicRouter.get("/login", async (req, res) => {
+    const mobileAttemptId =
+        typeof req.query.mobile === "string"
+            ? req.query.mobile
+            : undefined;
+
+    if (
+        req.query.mobile !== undefined &&
+        (!mobileAttemptId || !beginNativeLogin(mobileAttemptId))
+    ) {
+        res.status(400).send(
+            "This mobile sign-in expired or was already started. " +
+            "Return to EZ Healthcare and try again."
+        );
+        return;
+    }
+
     await new Promise<void>((resolve, reject) => {
         req.session.regenerate((error) => {
             if (error) reject(error);
@@ -90,6 +112,7 @@ epicRouter.get("/login", async (req, res) => {
         state,
         verifier,
         createdAt: Date.now(),
+        ...(mobileAttemptId ? { mobileAttemptId } : {}),
     };
 
     const url = new URL(authorizeUrl);
@@ -120,12 +143,14 @@ epicRouter.get("/login", async (req, res) => {
     res.redirect(url.toString());
 });
 
-// Epic sends the browser here after the patient signs in.
+// Epic sends the browser here after authorization.
 epicRouter.get("/callback", async (req, res) => {
     const pending = req.session.epicLogin;
 
     const returnedState =
-        typeof req.query.state === "string" ? req.query.state : "";
+        typeof req.query.state === "string"
+            ? req.query.state
+            : "";
 
     if (
         !pending ||
@@ -133,12 +158,13 @@ epicRouter.get("/callback", async (req, res) => {
         Date.now() - pending.createdAt > 10 * 60 * 1000
     ) {
         res.status(400).send(
-            "Sign-in expired or could not be verified. Start again at /api/epic/login."
+            "Sign-in expired or could not be verified. " +
+            "Return to EZ Healthcare and start a new sign-in."
         );
         return;
     }
 
-    // Each sign-in attempt can only be completed once.
+    // Each authorization attempt can only be completed once.
     delete req.session.epicLogin;
 
     await new Promise<void>((resolve, reject) => {
@@ -150,16 +176,21 @@ epicRouter.get("/callback", async (req, res) => {
 
     if (req.query.error) {
         res.status(400).send(
-            "Epic authorization was not completed. Start again at /api/epic/login."
+            "Epic authorization was not completed. " +
+            "Return to EZ Healthcare and try again."
         );
         return;
     }
 
     const code =
-        typeof req.query.code === "string" ? req.query.code : "";
+        typeof req.query.code === "string"
+            ? req.query.code
+            : "";
 
     if (!code) {
-        res.status(400).send("Epic did not return an authorization code.");
+        res.status(400).send(
+            "Epic did not return an authorization code."
+        );
         return;
     }
 
@@ -186,7 +217,9 @@ epicRouter.get("/callback", async (req, res) => {
             error: "Epic token exchange failed.",
             epicStatus: response.status,
             epicError:
-                typeof token.error === "string" ? token.error : "Unknown error",
+                typeof token.error === "string"
+                    ? token.error
+                    : "Unknown error",
         });
         return;
     }
@@ -195,10 +228,13 @@ epicRouter.get("/callback", async (req, res) => {
         typeof token.access_token !== "string" ||
         typeof token.patient !== "string" ||
         typeof token.expires_in !== "number" ||
+        !Number.isFinite(token.expires_in) ||
         token.expires_in <= 0
     ) {
         res.status(502).json({
-            error: "Epic did not return the expected token and patient context.",
+            error:
+                "Epic did not return the expected token " +
+                "and patient context.",
         });
         return;
     }
@@ -211,7 +247,7 @@ epicRouter.get("/callback", async (req, res) => {
         });
     });
 
-    // Tokens remain in backend memory, not in the browser response.
+    // Epic tokens stay in backend memory.
     req.session.epicConnection = {
         accessToken: token.access_token,
         patientId: token.patient,
@@ -226,6 +262,96 @@ epicRouter.get("/callback", async (req, res) => {
     });
 
     console.log("Epic sandbox authorization completed.");
+
+    if (pending.mobileAttemptId) {
+        const pairingCode = await prepareMobileDemo(
+            req.session.epicConnection!
+        );
+
+        const completed = completeNativeLogin(
+            pending.mobileAttemptId,
+            pairingCode
+        );
+
+        if (!completed) {
+            res.status(400).send(
+                "The mobile sign-in expired. " +
+                "Return to EZ Healthcare and connect again."
+            );
+            return;
+        }
+
+        const returnUrl = new URL("ezhealthcare://medications");
+
+        returnUrl.searchParams.set("epic", "connected");
+        returnUrl.searchParams.set(
+            "attempt",
+            pending.mobileAttemptId
+        );
+
+        // Escape the URL for use inside an HTML attribute.
+        // No Epic token or pairing code is placed in this link.
+        const appLink = returnUrl
+            .toString()
+            .replace(/&/g, "&amp;")
+            .replace(/"/g, "&quot;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;");
+
+        console.log("Mobile authorization return page sent.");
+
+        res.type("html").send(`
+            <!doctype html>
+            <html lang="en">
+              <head>
+                <meta charset="utf-8">
+                <meta
+                  name="viewport"
+                  content="width=device-width, initial-scale=1"
+                >
+                <title>Connected to EZ Healthcare</title>
+              </head>
+              <body
+                style="
+                  font-family: sans-serif;
+                  padding: 32px;
+                  color: #0B2236;
+                  background: #F7F8F3;
+                "
+              >
+                <h1>Epic connection successful</h1>
+
+                <p>Your sandbox medication records are ready.</p>
+
+                <a
+                  href="${appLink}"
+                  target="_top"
+                  style="
+                    display: inline-block;
+                    padding: 18px 24px;
+                    background: #17618E;
+                    color: white;
+                    border-radius: 12px;
+                    text-decoration: none;
+                    font-size: 20px;
+                  "
+                >
+                  Return to EZ Healthcare
+                </a>
+
+                <p>
+                  Tap the button within one minute
+                  to finish connecting.
+                </p>
+
+                <p>This connection uses synthetic sandbox data.</p>
+              </body>
+            </html>
+        `);
+        return;
+    }
+
+    // Preserve the original desktop authorization flow.
     res.redirect("/api/epic/status");
 });
 
@@ -237,7 +363,9 @@ epicRouter.use((req, res, next) => {
         delete req.session.epicConnection;
 
         res.status(401).json({
-            error: "Sign in to Epic first, or sign in again if your session expired.",
+            error:
+                "Sign in to Epic first, or sign in again " +
+                "if your session expired.",
             loginUrl: "http://localhost:3001/api/epic/login",
         });
         return;
@@ -248,26 +376,34 @@ epicRouter.use((req, res, next) => {
 
 epicRouter.get("/status", (_req, res) => {
     res.type("html").send(`
-    <!doctype html>
-    <html lang="en">
-      <head>
-        <meta charset="utf-8">
-        <title>EZ Healthcare — Epic Sandbox</title>
-      </head>
-      <body>
-        <h1>Connected to Epic's sandbox</h1>
-        <p>Authorization succeeded. Choose a request to test:</p>
-        <ul>
-          <li><a href="/api/epic/patient">View sandbox patient</a></li>
-          <li><a href="/api/epic/medications">View medication orders</a></li>
-        </ul>
-        <p>This demonstration uses synthetic sandbox data.</p>
-      </body>
-    </html>
-  `);
+        <!doctype html>
+        <html lang="en">
+          <head>
+            <meta charset="utf-8">
+            <title>EZ Healthcare — Epic Sandbox</title>
+          </head>
+          <body>
+            <h1>Connected to Epic's sandbox</h1>
+            <p>Authorization succeeded. Choose a request to test:</p>
+            <ul>
+              <li>
+                <a href="/api/epic/patient">
+                  View sandbox patient
+                </a>
+              </li>
+              <li>
+                <a href="/api/epic/medications">
+                  View medication orders
+                </a>
+              </li>
+            </ul>
+            <p>This demonstration uses synthetic sandbox data.</p>
+          </body>
+        </html>
+    `);
 });
 
-// Return the authorized sandbox patient's FHIR record.
+// Return the authorized patient's FHIR record.
 epicRouter.get("/patient", async (req, res) => {
     const connection = req.session.epicConnection!;
 
@@ -286,10 +422,11 @@ epicRouter.get("/patient", async (req, res) => {
     const data = await response.json();
 
     console.log(`Epic Patient request: HTTP ${response.status}`);
+
     res.status(response.status).json(data);
 });
 
-// Return the first page of medication orders for that patient.
+// Return the first page of medication orders.
 epicRouter.get("/medications", async (req, res) => {
     const connection = req.session.epicConnection!;
 
@@ -306,36 +443,56 @@ epicRouter.get("/medications", async (req, res) => {
 
     const data = await response.json();
 
-    console.log(`Epic MedicationRequest: HTTP ${response.status}`);
+    console.log(
+        `Epic MedicationRequest: HTTP ${response.status}`
+    );
+
     res.status(response.status).json(data);
 });
 
-// This route is protected by the Epic session check above it.
+// Preserve the manual pairing page as a fallback.
 epicRouter.get("/mobile", async (req, res) => {
     const connection = req.session.epicConnection!;
-
     const code = await prepareMobileDemo(connection);
 
     res.type("html").send(`
-    <!doctype html>
-    <html lang="en">
-      <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>Pair EZ Healthcare</title>
-      </head>
-      <body style="font-family: sans-serif; padding: 32px; color: #0B2236;">
-        <h1>Connect your Android demo</h1>
-        <p>Open Medications in EZ Healthcare and enter this code:</p>
-        <p style="font-size: 36px; font-weight: bold; letter-spacing: 4px;">
-          ${code}
-        </p>
-        <p>The code expires in five minutes and can be used once.</p>
-        <p>The saved Epic sandbox data remains available for 30 minutes.</p>
-        <p>Reload this page to retrieve a new snapshot and pairing code.</p>
-      </body>
-    </html>
-  `);
+        <!doctype html>
+        <html lang="en">
+          <head>
+            <meta charset="utf-8">
+            <meta
+              name="viewport"
+              content="width=device-width, initial-scale=1"
+            >
+            <title>Pair EZ Healthcare</title>
+          </head>
+          <body
+            style="
+              font-family: sans-serif;
+              padding: 32px;
+              color: #0B2236;
+            "
+          >
+            <h1>Connect your Android demo</h1>
+            <p>Open Medications in EZ Healthcare and enter this code:</p>
+            <p
+              style="
+                font-size: 36px;
+                font-weight: bold;
+                letter-spacing: 4px;
+              "
+            >
+              ${code}
+            </p>
+            <p>The code expires in five minutes and can be used once.</p>
+            <p>
+              The saved Epic sandbox data remains available
+              for 30 minutes.
+            </p>
+            <p>Reload this page to retrieve a new snapshot and code.</p>
+          </body>
+        </html>
+    `);
 });
 
 const handleEpicError: ErrorRequestHandler = (
@@ -349,8 +506,15 @@ const handleEpicError: ErrorRequestHandler = (
         error instanceof Error ? error.message : "Unknown error"
     );
 
+    if (res.headersSent) {
+        _next(error);
+        return;
+    }
+
     res.status(502).json({
-        error: "The Epic request could not be completed. Try signing in again.",
+        error:
+            "The Epic request could not be completed. " +
+            "Try signing in again.",
     });
 };
 

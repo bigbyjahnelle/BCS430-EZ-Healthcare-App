@@ -1,5 +1,6 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -8,7 +9,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -18,7 +18,6 @@ const API_URL =
         ? 'http://10.0.2.2:3001'
         : 'http://localhost:3001';
 
-// Retained while the app is running, including when navigating back.
 let demoToken: string | null = null;
 
 type Medication = {
@@ -43,42 +42,199 @@ type Snapshot = {
   warnings: string[];
 };
 
+type ConnectedData = {
+  token: string;
+  snapshot: Snapshot;
+};
+
+type NativeAttempt = {
+  id: string;
+  secret: string;
+  result?: Promise<ConnectedData>;
+};
+
+let pendingLogin: NativeAttempt | null = null;
+
+async function postJson(
+    path: string,
+    body: object,
+    token?: string
+) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 20000);
+
+  try {
+    const response = await fetch(`${API_URL}${path}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+          data.error || 'The connection could not be completed.'
+      );
+    }
+
+    return data;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function finishConnection(
+    attempt: NativeAttempt
+): Promise<ConnectedData> {
+  // Share one request if the browser result and Router callback
+  // both try to collect the single-use connection result.
+  if (!attempt.result) {
+    attempt.result = (async () => {
+      try {
+        const claim = await postJson(
+            '/api/native/claim',
+            { id: attempt.id },
+            attempt.secret
+        );
+
+        const data = await postJson(
+            '/api/mobile/pair',
+            { code: claim.code }
+        );
+
+        if (
+            typeof data.token !== 'string' ||
+            !data.snapshot ||
+            !Array.isArray(data.snapshot.medications)
+        ) {
+          throw new Error(
+              'The backend returned an unexpected response.'
+          );
+        }
+
+        demoToken = data.token;
+        return data as ConnectedData;
+      } finally {
+        attempt.secret = '';
+      }
+    })();
+  }
+
+  return attempt.result;
+}
+
 export default function MedicationsScreen() {
   const router = useRouter();
 
-  const [code, setCode] = useState('');
+  const params = useLocalSearchParams<{
+    epic?: string;
+    attempt?: string;
+  }>();
+
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [loading, setLoading] = useState(Boolean(demoToken));
   const [error, setError] = useState('');
 
+  // Handle Epic's return link if Router remounts this screen.
   useEffect(() => {
-    const controller = new AbortController();
+    const attempt = pendingLogin;
+
+    if (
+        params.epic !== 'connected' ||
+        !attempt ||
+        params.attempt !== attempt.id
+    ) {
+      return;
+    }
+
     let active = true;
 
+    setLoading(true);
+    setError('');
+
+    finishConnection(attempt)
+        .then((data) => {
+          if (active) {
+            setSnapshot(data.snapshot);
+          }
+        })
+        .catch((requestError) => {
+          if (active) {
+            setError(
+                requestError instanceof Error
+                    ? requestError.message
+                    : 'Could not complete Epic sign-in.'
+            );
+          }
+        })
+        .finally(() => {
+          if (active) {
+            setLoading(false);
+          }
+        });
+
+    return () => {
+      active = false;
+    };
+  }, [params.epic, params.attempt]);
+
+  // Restore the saved connection when reopening this screen.
+  useEffect(() => {
+    // The return-link effect handles this case instead.
+    if (
+        params.epic === 'connected' &&
+        pendingLogin &&
+        params.attempt === pendingLogin.id
+    ) {
+      return;
+    }
+
+    const savedToken = demoToken;
+
+    if (!savedToken) {
+      setLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15000);
+    let active = true;
 
     async function restoreConnection() {
-      if (!demoToken) {
-        setLoading(false);
-        return;
-      }
-
       try {
-        const response = await fetch(`${API_URL}/api/mobile/medications`, {
-          headers: {
-            Authorization: `Bearer ${demoToken}`,
-          },
-          signal: controller.signal,
-        });
+        const response = await fetch(
+            `${API_URL}/api/mobile/medications`,
+            {
+              headers: {
+                Authorization: `Bearer ${savedToken}`,
+              },
+              signal: controller.signal,
+            }
+        );
 
         const data = await response.json();
 
         if (!response.ok) {
-          if (response.status === 401) demoToken = null;
-          throw new Error(data.error || 'Could not load the saved data.');
+          if (
+              response.status === 401 &&
+              demoToken === savedToken
+          ) {
+            demoToken = null;
+          }
+
+          throw new Error(
+              data.error || 'Could not load the saved data.'
+          );
         }
 
-        if (active) setSnapshot(data);
+        if (active) {
+          setSnapshot(data);
+        }
       } catch (requestError) {
         if (active) {
           setError(
@@ -89,7 +245,10 @@ export default function MedicationsScreen() {
         }
       } finally {
         clearTimeout(timeout);
-        if (active) setLoading(false);
+
+        if (active) {
+          setLoading(false);
+        }
       }
     }
 
@@ -102,47 +261,86 @@ export default function MedicationsScreen() {
     };
   }, []);
 
-  // Clear the displayed snapshot when its demo access expires.
+  // Clear the displayed snapshot when its access expires.
   useEffect(() => {
     if (!snapshot) return;
 
     const timeout = setTimeout(() => {
       demoToken = null;
+      pendingLogin = null;
       setSnapshot(null);
-      setError('Demo access expired. Generate a new code on your Mac.');
+      setError(
+          'Your sandbox connection expired. Connect to Epic again.'
+      );
     }, Math.max(0, snapshot.expiresAt - Date.now()));
 
     return () => clearTimeout(timeout);
   }, [snapshot]);
 
   async function connect() {
-    if (!code.trim() || loading) return;
+    if (loading) return;
 
     setLoading(true);
     setError('');
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000);
-
     try {
-      const response = await fetch(`${API_URL}/api/mobile/pair`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ code }),
-        signal: controller.signal,
-      });
+      const started = await postJson('/api/native/start', {});
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Could not pair the app.');
+      if (
+          typeof started.id !== 'string' ||
+          typeof started.secret !== 'string' ||
+          typeof started.loginUrl !== 'string'
+      ) {
+        throw new Error(
+            'The backend could not start Epic sign-in.'
+        );
       }
 
-      demoToken = data.token;
+      const attempt: NativeAttempt = {
+        id: started.id,
+        secret: started.secret,
+      };
+
+      pendingLogin = attempt;
+
+      const result = await WebBrowser.openAuthSessionAsync(
+          started.loginUrl,
+          'ezhealthcare://medications'
+      );
+
+      if (result.type !== 'success') {
+        // Router may already be collecting a successful result.
+        if (attempt.result) {
+          const data = await attempt.result;
+          setSnapshot(data.snapshot);
+          return;
+        }
+
+        if (pendingLogin === attempt) {
+          pendingLogin = null;
+        }
+
+        setError(
+            'Sign-in was closed. Tap Connect to Epic to try again.'
+        );
+        return;
+      }
+
+      const returnedUrl = new URL(result.url);
+
+      if (
+          returnedUrl.protocol !== 'ezhealthcare:' ||
+          returnedUrl.hostname !== 'medications' ||
+          returnedUrl.searchParams.get('epic') !== 'connected' ||
+          returnedUrl.searchParams.get('attempt') !== attempt.id
+      ) {
+        throw new Error(
+            'The sign-in return link could not be verified.'
+        );
+      }
+
+      const data = await finishConnection(attempt);
       setSnapshot(data.snapshot);
-      setCode('');
     } catch (requestError) {
       setError(
           requestError instanceof Error
@@ -150,7 +348,6 @@ export default function MedicationsScreen() {
               : 'Could not connect. Check that the backend is running.'
       );
     } finally {
-      clearTimeout(timeout);
       setLoading(false);
     }
   }
@@ -191,7 +388,10 @@ export default function MedicationsScreen() {
           {loading && (
               <View style={styles.loadingBox}>
                 <ActivityIndicator size="large" color="#17618E" />
-                <Text style={styles.body} accessibilityLiveRegion="polite">
+                <Text
+                    style={styles.body}
+                    accessibilityLiveRegion="polite"
+                >
                   Connecting…
                 </Text>
               </View>
@@ -205,36 +405,22 @@ export default function MedicationsScreen() {
 
           {!snapshot && !loading && (
               <View style={styles.card}>
-                <Text style={styles.cardTitle}>Connect to the demo</Text>
+                <Text style={styles.cardTitle}>Connect to Epic</Text>
 
                 <Text style={styles.body}>
-                  Enter the pairing code shown in your Mac’s browser.
+                  Sign into Epic’s sandbox to view the test patient’s
+                  medication records. You will return here after approving
+                  access.
                 </Text>
 
-                <TextInput
-                    style={styles.input}
-                    value={code}
-                    onChangeText={setCode}
-                    placeholder="Pairing code"
-                    placeholderTextColor="#566575"
-                    autoCapitalize="characters"
-                    autoCorrect={false}
-                    maxLength={20}
-                    accessibilityLabel="Pairing code"
-                    onSubmitEditing={connect}
-                />
-
                 <Pressable
-                    style={[
-                      styles.button,
-                      !code.trim() && styles.disabledButton,
-                    ]}
+                    style={styles.button}
                     accessibilityRole="button"
-                    accessibilityState={{ disabled: !code.trim() }}
-                    disabled={!code.trim()}
                     onPress={connect}
                 >
-                  <Text style={styles.buttonText}>Connect</Text>
+                  <Text style={styles.buttonText}>
+                    Connect to Epic
+                  </Text>
                 </Pressable>
               </View>
           )}
@@ -251,11 +437,13 @@ export default function MedicationsScreen() {
                   </Text>
 
                   <Text style={styles.smallText}>
-                    Retrieved: {new Date(snapshot.fetchedAt).toLocaleString()}
+                    Retrieved:{' '}
+                    {new Date(snapshot.fetchedAt).toLocaleString()}
                   </Text>
 
                   <Text style={styles.smallText}>
-                    Saved snapshot — this screen does not continuously update.
+                    Saved snapshot — this screen does not continuously
+                    update.
                   </Text>
                 </View>
 
@@ -289,21 +477,36 @@ export default function MedicationsScreen() {
 
                       {medication.status === 'completed' && (
                           <Text style={styles.smallText}>
-                            Historical order marked completed in the source record.
+                            Historical order marked completed in the source
+                            record.
                           </Text>
                       )}
 
-                      <Text style={styles.detailLabel}>Recorded dosage</Text>
-                      <Text style={styles.body}>{medication.dosage}</Text>
+                      <Text style={styles.detailLabel}>
+                        Recorded dosage
+                      </Text>
+                      <Text style={styles.body}>
+                        {medication.dosage}
+                      </Text>
 
-                      <Text style={styles.detailLabel}>Recorded frequency</Text>
-                      <Text style={styles.body}>{medication.frequency}</Text>
+                      <Text style={styles.detailLabel}>
+                        Recorded frequency
+                      </Text>
+                      <Text style={styles.body}>
+                        {medication.frequency}
+                      </Text>
 
-                      <Text style={styles.detailLabel}>Recorded instructions</Text>
-                      <Text style={styles.body}>{medication.instructions}</Text>
+                      <Text style={styles.detailLabel}>
+                        Recorded instructions
+                      </Text>
+                      <Text style={styles.body}>
+                        {medication.instructions}
+                      </Text>
 
                       <Text style={styles.detailLabel}>Order date</Text>
-                      <Text style={styles.body}>{medication.authoredOn}</Text>
+                      <Text style={styles.body}>
+                        {medication.authoredOn}
+                      </Text>
                     </View>
                 ))}
 
@@ -318,12 +521,13 @@ export default function MedicationsScreen() {
                     accessibilityRole="button"
                     onPress={() => {
                       demoToken = null;
+                      pendingLogin = null;
                       setSnapshot(null);
-                      setCode('');
                       setError('');
+                      router.setParams({ epic: '', attempt: '' });
                     }}
                 >
-                  <Text style={styles.buttonText}>Enter a New Code</Text>
+                  <Text style={styles.buttonText}>Disconnect</Text>
                 </Pressable>
               </>
           )}

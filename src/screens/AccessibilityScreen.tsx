@@ -1,14 +1,21 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import type { ComponentProps } from 'react';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 type Category = {
   key: string;
   title: string;
   description: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: ComponentProps<typeof Ionicons>['name'];
 };
 
 const CATEGORIES: Category[] = [
@@ -57,8 +64,6 @@ export default function AccessibilityScreen() {
   return (
       <SafeAreaView style={styles.screen}>
         <ScrollView contentContainerStyle={styles.content}>
-
-          {/* Top row: back button + title + layout toggle, same line */}
           <View style={styles.topRow}>
             <Pressable
                 style={styles.backButton}
@@ -91,10 +96,8 @@ export default function AccessibilityScreen() {
             </Pressable>
           </View>
 
-          {/* Brand + subtitle, centered below */}
           <View style={styles.header}>
             <Text style={styles.brand}>EZ HEALTHCARE</Text>
-
             <Text style={styles.subtitle}>Choose a category to adjust</Text>
           </View>
 
@@ -124,9 +127,7 @@ export default function AccessibilityScreen() {
                             accessible={false}
                         />
                       </View>
-
                       <Text style={styles.gridCardTitle}>{category.title}</Text>
-
                       <Text style={styles.gridCardDescription}>
                         {category.description}
                       </Text>
@@ -159,10 +160,8 @@ export default function AccessibilityScreen() {
                             accessible={false}
                         />
                       </View>
-
                       <View style={styles.cardTextBlock}>
                         <Text style={styles.cardTitle}>{category.title}</Text>
-
                         <Text style={styles.cardDescription}>
                           {category.description}
                         </Text>
@@ -171,7 +170,6 @@ export default function AccessibilityScreen() {
                 ))}
               </View>
           )}
-
         </ScrollView>
       </SafeAreaView>
   );
@@ -182,7 +180,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F7F8F3',
   },
-
   content: {
     flexGrow: 1,
     width: '100%',
@@ -194,14 +191,12 @@ const styles = StyleSheet.create({
     paddingRight: 20,
     gap: 18,
   },
-
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 0,
   },
-
   backButton: {
     width: 44,
     height: 44,
@@ -212,7 +207,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#DDE4E2',
   },
-
   topRowTitle: {
     flex: 1,
     fontSize: 34,
@@ -220,12 +214,10 @@ const styles = StyleSheet.create({
     color: '#0B2236',
     textAlign: 'center',
   },
-
   header: {
     alignItems: 'center',
     gap: 4,
   },
-
   brand: {
     fontSize: 19,
     fontWeight: '700',
@@ -234,20 +226,16 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: -9,
   },
-
   subtitle: {
     fontSize: 18,
     color: '#44525A',
     textAlign: 'center',
   },
-
-  // Grid layout styles
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 14,
   },
-
   gridCard: {
     flexBasis: '47%',
     flexGrow: 1,
@@ -266,7 +254,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.12,
     shadowRadius: 6,
   },
-
   gridCardIconCircle: {
     width: 80,
     height: 80,
@@ -277,25 +264,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#DDE4E2',
   },
-
   gridCardTitle: {
     fontSize: 19,
     fontWeight: '700',
     color: '#0B2236',
     textAlign: 'center',
   },
-
   gridCardDescription: {
     fontSize: 15,
     color: '#44525A',
     textAlign: 'center',
   },
-
-  // Horizontal stacked layout styles
   list: {
     gap: 14,
   },
-
   card: {
     width: '100%',
     flexDirection: 'row',
@@ -312,7 +294,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.12,
     shadowRadius: 6,
   },
-
   cardIconCircle: {
     width: 80,
     height: 80,
@@ -323,19 +304,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#DDE4E2',
   },
-
   cardTextBlock: {
     flex: 1,
     gap: 4,
   },
-
   cardTitle: {
     fontSize: 21,
     fontWeight: '700',
     color: '#0B2236',
     textAlign: 'left',
   },
-
   cardDescription: {
     fontSize: 19,
     color: '#44525A',
