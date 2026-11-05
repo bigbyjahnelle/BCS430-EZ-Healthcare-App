@@ -20,6 +20,10 @@ const API_URL =
 
 let demoToken: string | null = null;
 
+export function getMobileSession() {
+  return { apiUrl: API_URL, token: demoToken };
+}
+
 type Medication = {
   id: string;
   name: string;

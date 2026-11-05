@@ -13,16 +13,27 @@ type Medication = {
   authoredOn: string;
 };
 
+type Provider = {
+  id: string;
+  name: string | null;
+  role: "Prescribing provider";
+};
+
 type Snapshot = {
   source: string;
   fetchedAt: string;
   expiresAt: number;
-  patient: {
-    id: string;
-    name: string;
-  };
+  patient: { id: string; name: string };
   medications: Medication[];
+  providers: Provider[];
   warnings: string[];
+};
+
+type HumanName = {
+  use?: string;
+  text?: string;
+  given?: string[];
+  family?: string;
 };
 
 type MedicationResource = {
@@ -31,6 +42,7 @@ type MedicationResource = {
   status?: string;
   authoredOn?: string;
   subject?: { reference?: string };
+  requester?: { reference?: string };
   medicationReference?: { display?: string };
   medicationCodeableConcept?: {
     text?: string;
@@ -52,14 +64,14 @@ type MedicationResource = {
 };
 
 const pendingCodes = new Map<
-  string,
-  { snapshot: Snapshot; expiresAt: number }
+    string,
+    { snapshot: Snapshot; expiresAt: number }
 >();
 
 const connections = new Map<string, Snapshot>();
 
 const fhirBase =
-  "https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4";
+    "https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4";
 
 function removeExpiredItems() {
   const now = Date.now();
@@ -73,36 +85,89 @@ function removeExpiredItems() {
   }
 }
 
+function formatName(names?: HumanName[]): string | null {
+  const name = names?.find((item) => item.use === "official") ?? names?.[0];
+  return (
+      name?.text?.trim() ||
+      [...(name?.given ?? []), name?.family].filter(Boolean).join(" ") ||
+      null
+  );
+}
+
 function normalizeMedication(resource: MedicationResource): Medication {
   const dose = resource.dosageInstruction?.[0];
   const quantities = dose?.doseAndRate ?? [];
-
   const ordered = quantities.find((item) =>
-    item.type?.coding?.some((code) => code.code === "ordered")
+      item.type?.coding?.some((code) => code.code === "ordered")
   );
-
   const quantity = (ordered ?? quantities[0])?.doseQuantity;
 
   return {
     id: resource.id!,
     name:
-      resource.medicationReference?.display ||
-      resource.medicationCodeableConcept?.text ||
-      resource.medicationCodeableConcept?.coding?.[0]?.display ||
-      "Medication name not provided",
+        resource.medicationReference?.display ||
+        resource.medicationCodeableConcept?.text ||
+        resource.medicationCodeableConcept?.coding?.[0]?.display ||
+        "Medication name not provided",
     dosage:
-      quantity?.value != null
-        ? `${quantity.value} ${quantity.unit ?? ""}`.trim()
-        : "Not provided",
+        quantity?.value != null
+            ? `${quantity.value} ${quantity.unit ?? ""}`.trim()
+            : "Not provided",
     frequency: dose?.timing?.code?.text || "Not provided",
-    instructions:
-      dose?.patientInstruction || dose?.text || "Not provided",
+    instructions: dose?.patientInstruction || dose?.text || "Not provided",
     status: resource.status || "unknown",
     authoredOn: resource.authoredOn || "Not provided",
   };
 }
 
-// Called only from the authenticated Epic browser session.
+async function loadProviders(
+    medications: MedicationResource[],
+    headers: Record<string, string>
+): Promise<Provider[]> {
+  const ids = new Set<string>();
+
+  for (const medication of medications) {
+    const match = /^Practitioner\/([A-Za-z0-9.-]{1,64})$/.exec(
+        medication.requester?.reference ?? ""
+    );
+    const id = match?.[1];
+    if (id && id !== "." && id !== "..") ids.add(id);
+  }
+
+  return Promise.all(
+      [...ids].slice(0, 10).map(async (id): Promise<Provider> => {
+        const provider: Provider = {
+          id,
+          name: null,
+          role: "Prescribing provider",
+        };
+
+        try {
+          const response = await fetch(
+              `${fhirBase}/Practitioner/${encodeURIComponent(id)}`,
+              {
+                headers,
+                redirect: "error",
+                signal: AbortSignal.timeout(3000),
+              }
+          );
+
+          console.log(`Epic Practitioner lookup: HTTP ${response.status}`);
+          if (!response.ok) return provider;
+
+          const resource = await response.json();
+          if (resource.resourceType === "Practitioner" && resource.id === id) {
+            provider.name = formatName(resource.name);
+          }
+        } catch {
+          console.warn("Epic Practitioner lookup could not be completed.");
+        }
+
+        return provider;
+      })
+  );
+}
+
 export async function prepareMobileDemo(connection: {
   accessToken: string;
   patientId: string;
@@ -118,10 +183,10 @@ export async function prepareMobileDemo(connection: {
   medicationUrl.searchParams.set("patient", connection.patientId);
 
   const [patientResponse, medicationResponse] = await Promise.all([
-    fetch(
-      `${fhirBase}/Patient/${encodeURIComponent(connection.patientId)}`,
-      { headers, signal: AbortSignal.timeout(15000) }
-    ),
+    fetch(`${fhirBase}/Patient/${encodeURIComponent(connection.patientId)}`, {
+      headers,
+      signal: AbortSignal.timeout(15000),
+    }),
     fetch(medicationUrl, {
       headers,
       signal: AbortSignal.timeout(15000),
@@ -130,8 +195,8 @@ export async function prepareMobileDemo(connection: {
 
   if (!patientResponse.ok || !medicationResponse.ok) {
     throw new Error(
-      `Epic requests failed: Patient ${patientResponse.status}, ` +
-      `MedicationRequest ${medicationResponse.status}`
+        `Epic requests failed: Patient ${patientResponse.status}, ` +
+        `MedicationRequest ${medicationResponse.status}`
     );
   }
 
@@ -139,16 +204,17 @@ export async function prepareMobileDemo(connection: {
   const bundle = await medicationResponse.json();
 
   if (
-    patient.resourceType !== "Patient" ||
-    patient.id !== connection.patientId ||
-    bundle.resourceType !== "Bundle"
+      patient.resourceType !== "Patient" ||
+      patient.id !== connection.patientId ||
+      bundle.resourceType !== "Bundle"
   ) {
     throw new Error("Epic returned an unexpected patient or medication response.");
   }
 
-  const resources: MedicationResource[] = (bundle.entry ?? [])
-    .map((entry: { resource?: MedicationResource }) => entry.resource)
-    .filter((resource: MedicationResource | undefined) => Boolean(resource));
+  const entries: { resource?: MedicationResource }[] = bundle.entry ?? [];
+  const resources = entries
+      .map((entry) => entry.resource)
+      .filter((resource): resource is MedicationResource => Boolean(resource));
 
   const warnings: string[] = [];
 
@@ -159,41 +225,25 @@ export async function prepareMobileDemo(connection: {
       if (issue.severity === "error" || issue.severity === "fatal") {
         throw new Error("Epic reported an error retrieving medication data.");
       }
-
-      if (issue.details?.text) {
-        warnings.push(issue.details.text);
-      }
+      if (issue.details?.text) warnings.push(issue.details.text);
     }
   }
 
-  // This demo retrieves one page and clearly identifies extra pages.
-  if (
-    bundle.link?.some(
-      (link: { relation?: string }) => link.relation === "next"
-    )
-  ) {
-    warnings.push(
-      "Only the first page of medication orders is included in this demo."
-    );
+  if (bundle.link?.some((link: { relation?: string }) => link.relation === "next")) {
+    warnings.push("Only the first page of medication orders is included in this demo.");
   }
 
   const medicationResources = resources.filter(
-    (resource) => resource.resourceType === "MedicationRequest"
+      (resource) => resource.resourceType === "MedicationRequest"
   );
 
   for (const resource of medicationResources) {
-    if (
-      !resource.id ||
-      resource.subject?.reference !== `Patient/${connection.patientId}`
-    ) {
+    if (!resource.id || resource.subject?.reference !== `Patient/${connection.patientId}`) {
       throw new Error("A medication order could not be matched to this patient.");
     }
   }
 
-  const patientName =
-    patient.name?.find(
-      (name: { use?: string }) => name.use === "official"
-    ) ?? patient.name?.[0];
+  const providers = await loadProviders(medicationResources, headers);
 
   const snapshot: Snapshot = {
     source: "Epic sandbox",
@@ -201,31 +251,27 @@ export async function prepareMobileDemo(connection: {
     expiresAt: Date.now() + 30 * 60 * 1000,
     patient: {
       id: connection.patientId,
-      name:
-        patientName?.text ||
-        [...(patientName?.given ?? []), patientName?.family]
-          .filter(Boolean)
-          .join(" ") ||
-        "Sandbox patient",
+      name: formatName(patient.name) || "Sandbox patient",
     },
     medications: medicationResources.map(normalizeMedication),
+    providers,
     warnings: [...new Set(warnings)],
   };
 
-  // Limit temporary storage for this local demo.
   if (pendingCodes.size >= 100 || connections.size >= 100) {
     throw new Error("Demo session limit reached. Restart the backend.");
   }
 
   const code = randomBytes(6).toString("hex").toUpperCase();
-
   pendingCodes.set(code, {
     snapshot,
     expiresAt: Date.now() + 5 * 60 * 1000,
   });
 
   console.log(
-    `Epic mobile snapshot prepared: ${snapshot.medications.length} medication order(s).`
+      `Epic mobile snapshot prepared: ${snapshot.medications.length} medication order(s), ` +
+      `${providers.length} linked provider(s), ` +
+      `${providers.filter((provider) => provider.name).length} with a name.`
   );
 
   return code;
@@ -237,12 +283,11 @@ mobileDemoRouter.use((_req, res, next) => {
   next();
 });
 
-// Exchange a single-use code for access to its saved snapshot.
 mobileDemoRouter.post("/pair", (req, res) => {
   const code =
-    typeof req.body?.code === "string"
-      ? req.body.code.replace(/[\s-]/g, "").toUpperCase()
-      : "";
+      typeof req.body?.code === "string"
+          ? req.body.code.replace(/[\s-]/g, "").toUpperCase()
+          : "";
 
   const pending = pendingCodes.get(code);
 
@@ -254,31 +299,42 @@ mobileDemoRouter.post("/pair", (req, res) => {
   }
 
   pendingCodes.delete(code);
-
-  // This token only accesses the local snapshot. It is not an Epic token.
   const token = randomBytes(32).toString("hex");
   connections.set(token, pending.snapshot);
-
-  res.json({
-    token,
-    snapshot: pending.snapshot,
-  });
+  res.json({ token, snapshot: pending.snapshot });
 });
 
-mobileDemoRouter.get("/medications", (req, res) => {
-  const authorization = req.get("Authorization") ?? "";
-  const token = authorization.startsWith("Bearer ")
-    ? authorization.slice(7)
-    : "";
+function findSnapshot(authorization?: string) {
+  const token = /^Bearer ([a-f0-9]{64})$/.exec(authorization ?? "")?.[1];
+  return token ? connections.get(token) : undefined;
+}
 
-  const snapshot = connections.get(token);
+mobileDemoRouter.get("/medications", (req, res) => {
+  const snapshot = findSnapshot(req.get("Authorization"));
 
   if (!snapshot) {
     res.status(401).json({
-      error: "Your demo connection expired. Generate a new code on your Mac.",
+      error: "Your Epic connection expired. Connect again in Medications.",
     });
     return;
   }
 
   res.json(snapshot);
+});
+
+mobileDemoRouter.get("/providers", (req, res) => {
+  const snapshot = findSnapshot(req.get("Authorization"));
+
+  if (!snapshot) {
+    res.status(401).json({
+      error: "Your Epic connection expired. Connect again in Medications.",
+    });
+    return;
+  }
+
+  res.json({
+    providers: snapshot.providers,
+    source: snapshot.source,
+    fetchedAt: snapshot.fetchedAt,
+  });
 });

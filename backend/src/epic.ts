@@ -127,11 +127,14 @@ epicRouter.get("/login", async (req, res) => {
             "patient/Patient.read",
             "patient/MedicationRequest.read",
             "patient/Medication.read",
+            ...(process.env.EPIC_PRACTITIONER_SCOPE?.trim() ? [process.env.EPIC_PRACTITIONER_SCOPE.trim()] : []),
         ].join(" "),
         state,
         code_challenge: challenge,
         code_challenge_method: "S256",
     }).toString();
+
+    console.log("Epic requested scopes:", url.searchParams.get("scope"));
 
     await new Promise<void>((resolve, reject) => {
         req.session.save((error) => {
@@ -211,6 +214,7 @@ epicRouter.get("/callback", async (req, res) => {
     });
 
     const token = await response.json();
+    console.log("Epic granted scopes:", token.scope ?? "(not returned)");
 
     if (!response.ok) {
         res.status(502).json({
