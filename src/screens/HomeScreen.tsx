@@ -32,7 +32,7 @@ type IconName = ComponentProps<typeof Ionicons>['name'];
 type Service = {
   title: string;
   icon: IconName;
-  route?: '/medications' | '/my-providers';
+  route?: '/medications' | '/my-providers' | '/my-health';
 };
 
 const MAIN_SERVICES: Service[] = [
@@ -43,7 +43,7 @@ const MAIN_SERVICES: Service[] = [
 ];
 
 const MORE_SERVICES: Service[] = [
-  { title: 'My Health', icon: 'heart-outline' },
+  { title: 'My Health', icon: 'heart-outline', route: '/my-health' },
   { title: 'Insurance', icon: 'shield-checkmark-outline' },
   { title: 'Share', icon: 'share-social-outline' },
   { title: 'My Providers', icon: 'location-outline', route: '/my-providers' },

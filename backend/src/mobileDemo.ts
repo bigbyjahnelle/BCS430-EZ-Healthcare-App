@@ -1,5 +1,6 @@
 import express from "express";
 import { randomBytes } from "node:crypto";
+import { loadVitals } from "./vitals.js";
 
 export const mobileDemoRouter = express.Router();
 
@@ -67,8 +68,13 @@ const pendingCodes = new Map<
     string,
     { snapshot: Snapshot; expiresAt: number }
 >();
-
 const connections = new Map<string, Snapshot>();
+
+// Epic credentials stay server-side and are never included in the snapshot JSON.
+const vitalsConnections = new WeakMap<
+    Snapshot,
+    { accessToken: string; expiresAt: number | undefined }
+>();
 
 const fhirBase =
     "https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4";
@@ -87,6 +93,7 @@ function removeExpiredItems() {
 
 function formatName(names?: HumanName[]): string | null {
   const name = names?.find((item) => item.use === "official") ?? names?.[0];
+
   return (
       name?.text?.trim() ||
       [...(name?.given ?? []), name?.family].filter(Boolean).join(" ") ||
@@ -131,6 +138,7 @@ async function loadProviders(
         medication.requester?.reference ?? ""
     );
     const id = match?.[1];
+
     if (id && id !== "." && id !== "..") ids.add(id);
   }
 
@@ -156,6 +164,7 @@ async function loadProviders(
           if (!response.ok) return provider;
 
           const resource = await response.json();
+
           if (resource.resourceType === "Practitioner" && resource.id === id) {
             provider.name = formatName(resource.name);
           }
@@ -171,6 +180,7 @@ async function loadProviders(
 export async function prepareMobileDemo(connection: {
   accessToken: string;
   patientId: string;
+  expiresAt?: number;
 }) {
   removeExpiredItems();
 
@@ -225,6 +235,7 @@ export async function prepareMobileDemo(connection: {
       if (issue.severity === "error" || issue.severity === "fatal") {
         throw new Error("Epic reported an error retrieving medication data.");
       }
+
       if (issue.details?.text) warnings.push(issue.details.text);
     }
   }
@@ -238,7 +249,10 @@ export async function prepareMobileDemo(connection: {
   );
 
   for (const resource of medicationResources) {
-    if (!resource.id || resource.subject?.reference !== `Patient/${connection.patientId}`) {
+    if (
+        !resource.id ||
+        resource.subject?.reference !== `Patient/${connection.patientId}`
+    ) {
       throw new Error("A medication order could not be matched to this patient.");
     }
   }
@@ -262,7 +276,13 @@ export async function prepareMobileDemo(connection: {
     throw new Error("Demo session limit reached. Restart the backend.");
   }
 
+  vitalsConnections.set(snapshot, {
+    accessToken: connection.accessToken,
+    expiresAt: connection.expiresAt,
+  });
+
   const code = randomBytes(6).toString("hex").toUpperCase();
+
   pendingCodes.set(code, {
     snapshot,
     expiresAt: Date.now() + 5 * 60 * 1000,
@@ -299,6 +319,7 @@ mobileDemoRouter.post("/pair", (req, res) => {
   }
 
   pendingCodes.delete(code);
+
   const token = randomBytes(32).toString("hex");
   connections.set(token, pending.snapshot);
   res.json({ token, snapshot: pending.snapshot });
@@ -337,4 +358,27 @@ mobileDemoRouter.get("/providers", (req, res) => {
     source: snapshot.source,
     fetchedAt: snapshot.fetchedAt,
   });
+});
+
+mobileDemoRouter.get("/vitals", async (req, res) => {
+  const snapshot = findSnapshot(req.get("Authorization"));
+  const connection = snapshot ? vitalsConnections.get(snapshot) : undefined;
+
+  if (
+      !snapshot ||
+      !connection ||
+      (connection.expiresAt !== undefined && Date.now() >= connection.expiresAt)
+  ) {
+    res.status(401).json({
+      error: "Your Epic connection expired. Connect again in Medications.",
+    });
+    return;
+  }
+
+  const vitals = await loadVitals(fhirBase, snapshot.patient.id, {
+    Authorization: `Bearer ${connection.accessToken}`,
+    Accept: "application/fhir+json",
+  });
+
+  res.json(vitals);
 });
