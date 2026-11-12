@@ -347,7 +347,7 @@ Records are clearly labeled as fictional. The screens are the same screens used 
 
 Use the team's verified synthetic test account, not a personal patient account.
 
-The previously used test username is `fhirderrick`. Ask the developer for the current test credentials.
+The previously used test username is `fhirderrick` and the password is 'epicepic1'.
 
 Authorization temporarily uses the browser. The return link brings the user back to the app.
 
