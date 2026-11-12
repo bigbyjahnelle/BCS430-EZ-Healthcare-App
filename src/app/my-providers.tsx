@@ -2,21 +2,23 @@ import { Stack, useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { modeLabel, useDataMode } from '../services/dataMode';
 import { getMobileSession } from '../screens/MedicationsScreen';
 
 type Provider = { id: string; name: string | null; role: string };
 
 export default function MyProvidersScreen() {
     const router = useRouter();
+    const mode = useDataMode();
     const [providers, setProviders] = useState<Provider[]>([]);
     const [message, setMessage] = useState('Loading providers…');
     const [needsConnection, setNeedsConnection] = useState(false);
 
     useFocusEffect(useCallback(() => {
-        const { apiUrl, token } = getMobileSession();
+        const { apiUrl, token, mode: selectedMode } = getMobileSession();
         setProviders([]);
-        setNeedsConnection(!token);
-        if (!token) {
+        setNeedsConnection(selectedMode === 'api' && !token);
+        if (selectedMode === 'api' && !token) {
             setMessage('Connect to Epic in Medications to view your providers.');
             return;
         }
@@ -28,8 +30,8 @@ export default function MyProvidersScreen() {
 
         async function load() {
             try {
-                const response = await fetch(`${apiUrl}/api/mobile/providers`, {
-                    headers: { Authorization: `Bearer ${token}` },
+                const response = await fetch(`${apiUrl}/api/${selectedMode === 'sample' ? 'sample' : 'mobile'}/providers`, {
+                    headers: selectedMode === 'api' ? { Authorization: `Bearer ${token}` } : {},
                     signal: controller.signal,
                 });
                 if (!active) return;
@@ -57,13 +59,13 @@ export default function MyProvidersScreen() {
             clearTimeout(timeout);
             controller.abort();
         };
-    }, []));
+    }, [mode]));
 
     return (
         <SafeAreaView style={styles.screen}>
             <Stack.Screen options={{ title: 'My Providers', headerShown: true }} />
             <ScrollView contentContainerStyle={styles.content}>
-                <Text style={styles.body}>Prescribing providers linked to your Epic sandbox medication records.</Text>
+                <Text style={styles.body}>{modeLabel(mode)}. Prescribing providers linked to the displayed records.</Text>
                 {message ? <Text style={styles.body} accessibilityLiveRegion="polite">{message}</Text> : null}
                 {needsConnection ? (
                     <Pressable accessibilityRole="button" style={styles.button} onPress={() => router.push('/medications')}>

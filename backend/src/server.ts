@@ -4,6 +4,7 @@ import express from "express";
 import pg from "pg";
 import epicRouter from "./epic.js";
 import { nativeAuthRouter } from "./nativeAuth.js";
+import { createSampleDataRouter } from "./sampleData.js";
 
 const { Pool } = pg;
 
@@ -15,6 +16,7 @@ const pool = new Pool({
 });
 
 app.use(express.json());
+app.use('/api/sample', createSampleDataRouter(pool));
 app.use("/api/native", nativeAuthRouter);
 
 app.use("/api/mobile", mobileDemoRouter);
@@ -76,6 +78,23 @@ app.get("/api/demo/medications", async (_req, res) => {
         res.status(500).json({
             error: "Unable to retrieve medications.",
         });
+    }
+});
+
+app.get("/api/demo/records", async (_req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+
+    try {
+        const { rows } = await pool.query(`
+            SELECT id, section, title, detail
+            FROM ez_demo_records
+            ORDER BY id
+        `);
+
+        res.json({ source: "fictional-demo", records: rows });
+    } catch (error) {
+        console.error("Could not load demo records:", error);
+        res.status(503).json({ error: "Demo records are unavailable." });
     }
 });
 

@@ -16,6 +16,7 @@ import type {
   NativeSyntheticEvent,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { modeLabel, useDataMode } from '../services/dataMode';
 
 const BLUE = '#17618E';
 const GREEN = '#008060';
@@ -83,6 +84,7 @@ function CornerButton({
 }
 
 export default function HomeScreen() {
+  const mode = useDataMode();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView>(null);
@@ -225,6 +227,16 @@ export default function HomeScreen() {
 
                 <Text style={styles.speakText}>Tap to Speak</Text>
               </View>
+            </Pressable>
+
+            <Pressable
+                accessibilityRole="button"
+                onPress={() => router.push('/welcome')}
+                style={{ minHeight: 48, justifyContent: 'center', paddingHorizontal: 12 }}
+            >
+              <Text style={{ color: '#17618E', fontSize: 18, fontWeight: '700' }}>
+                {modeLabel(mode)} · Change
+              </Text>
             </Pressable>
 
             {renderServices(MAIN_SERVICES)}

@@ -2,12 +2,14 @@ import { Stack, useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { modeLabel, useDataMode } from '../services/dataMode';
 import { getMobileSession } from '../screens/MedicationsScreen';
 
 type Vital = { id: string; name: string; value: string; recordedAt: string | null };
 
 export default function MyHealthScreen() {
     const router = useRouter();
+    const mode = useDataMode();
     const [readings, setReadings] = useState<Vital[]>([]);
     const [message, setMessage] = useState('Loading vital signs…');
     const [connect, setConnect] = useState(false);
@@ -15,11 +17,11 @@ export default function MyHealthScreen() {
     const [attempt, setAttempt] = useState(0);
 
     useFocusEffect(useCallback(() => {
-        const { apiUrl, token } = getMobileSession();
+        const { apiUrl, token, mode: selectedMode } = getMobileSession();
         setReadings([]);
-        setConnect(!token);
+        setConnect(selectedMode === 'api' && !token);
         setCanRetry(false);
-        if (!token) {
+        if (selectedMode === 'api' && !token) {
             setMessage('Connect to Epic in Medications to view your vital signs.');
             return;
         }
@@ -30,8 +32,8 @@ export default function MyHealthScreen() {
 
         async function load() {
             try {
-                const response = await fetch(`${apiUrl}/api/mobile/vitals`, {
-                    headers: { Authorization: `Bearer ${token}` },
+                const response = await fetch(`${apiUrl}/api/${selectedMode === 'sample' ? 'sample' : 'mobile'}/vitals`, {
+                    headers: selectedMode === 'api' ? { Authorization: `Bearer ${token}` } : {},
                     signal: controller.signal,
                 });
                 if (!active) return;
@@ -45,7 +47,7 @@ export default function MyHealthScreen() {
                 if (!active) return;
                 if (data.status !== 'ok' || !Array.isArray(data.readings)) {
                     setCanRetry(true);
-                    setMessage('Epic vital signs are temporarily unavailable.');
+                    setMessage(selectedMode === 'sample' ? 'Sample vital signs could not be loaded. Check the backend and database.' : 'Epic vital signs are temporarily unavailable.');
                     return;
                 }
                 setReadings(data.readings);
@@ -68,14 +70,14 @@ export default function MyHealthScreen() {
             clearTimeout(timeout);
             controller.abort();
         };
-    }, [attempt]));
+    }, [attempt, mode]));
 
     return (
         <SafeAreaView style={styles.screen}>
             <Stack.Screen options={{ title: 'My Health', headerShown: true }} />
             <ScrollView contentContainerStyle={styles.content}>
                 <Text accessibilityRole="header" style={styles.title}>My Vitals</Text>
-                <Text style={styles.body}>Readings from Epic’s sandbox. Test data only.</Text>
+                <Text style={styles.body}>{modeLabel(mode)}. Test data only.</Text>
                 {message ? <Text style={styles.body} accessibilityLiveRegion="polite">{message}</Text> : null}
                 {connect ? (
                     <Pressable accessibilityRole="button" style={styles.button} onPress={() => router.push('/medications')}>

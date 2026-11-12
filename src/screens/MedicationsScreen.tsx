@@ -13,15 +13,17 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { getDataMode, getGeneration, mobileSession, modeLabel, useDataMode } from '../services/dataMode';
+
 const API_URL =
     Platform.OS === 'android'
         ? 'http://10.0.2.2:3001'
         : 'http://localhost:3001';
 
-let demoToken: string | null = null;
+
 
 export function getMobileSession() {
-  return { apiUrl: API_URL, token: demoToken };
+  return { apiUrl: API_URL, token: mobileSession.token, mode: getDataMode() };
 }
 
 type Medication = {
@@ -53,6 +55,7 @@ type ConnectedData = {
 
 type NativeAttempt = {
   id: string;
+  generation: number;
   secret: string;
   result?: Promise<ConnectedData>;
 };
@@ -121,7 +124,10 @@ function finishConnection(
           );
         }
 
-        demoToken = data.token;
+        if (attempt.generation !== getGeneration() || getDataMode() !== 'api') {
+          throw new Error('The data mode changed. Start a new connection.');
+        }
+        mobileSession.token = data.token;
         return data as ConnectedData;
       } finally {
         attempt.secret = '';
@@ -134,6 +140,8 @@ function finishConnection(
 
 export default function MedicationsScreen() {
   const router = useRouter();
+  const mode = useDataMode();
+  const isSample = mode === 'sample';
 
   const params = useLocalSearchParams<{
     epic?: string;
@@ -141,14 +149,17 @@ export default function MedicationsScreen() {
   }>();
 
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
-  const [loading, setLoading] = useState(Boolean(demoToken));
+  const [loading, setLoading] = useState(isSample || Boolean(mobileSession.token));
   const [error, setError] = useState('');
+  const [reload, setReload] = useState(0);
 
   // Handle Epic's return link if Router remounts this screen.
   useEffect(() => {
     const attempt = pendingLogin;
 
     if (
+        isSample ||
+        attempt?.generation !== getGeneration() ||
         params.epic !== 'connected' ||
         !attempt ||
         params.attempt !== attempt.id
@@ -185,12 +196,14 @@ export default function MedicationsScreen() {
     return () => {
       active = false;
     };
-  }, [params.epic, params.attempt]);
+  }, [params.epic, params.attempt, mode]);
 
   // Restore the saved connection when reopening this screen.
   useEffect(() => {
     // The return-link effect handles this case instead.
     if (
+        !isSample &&
+        pendingLogin?.generation === getGeneration() &&
         params.epic === 'connected' &&
         pendingLogin &&
         params.attempt === pendingLogin.id
@@ -198,9 +211,9 @@ export default function MedicationsScreen() {
       return;
     }
 
-    const savedToken = demoToken;
+    const savedToken = mobileSession.token;
 
-    if (!savedToken) {
+    if (!isSample && !savedToken) {
       setLoading(false);
       return;
     }
@@ -212,10 +225,10 @@ export default function MedicationsScreen() {
     async function restoreConnection() {
       try {
         const response = await fetch(
-            `${API_URL}/api/mobile/medications`,
+            `${API_URL}${isSample ? '/api/sample/medications' : '/api/mobile/medications'}`,
             {
               headers: {
-                Authorization: `Bearer ${savedToken}`,
+                ...(!isSample && savedToken ? { Authorization: `Bearer ${savedToken}` } : {}),
               },
               signal: controller.signal,
             }
@@ -226,9 +239,9 @@ export default function MedicationsScreen() {
         if (!response.ok) {
           if (
               response.status === 401 &&
-              demoToken === savedToken
+              mobileSession.token === savedToken
           ) {
-            demoToken = null;
+            mobileSession.token = null;
           }
 
           throw new Error(
@@ -263,14 +276,14 @@ export default function MedicationsScreen() {
       clearTimeout(timeout);
       controller.abort();
     };
-  }, []);
+  }, [mode, reload]);
 
   // Clear the displayed snapshot when its access expires.
   useEffect(() => {
-    if (!snapshot) return;
+    if (!snapshot || isSample) return;
 
     const timeout = setTimeout(() => {
-      demoToken = null;
+      mobileSession.token = null;
       pendingLogin = null;
       setSnapshot(null);
       setError(
@@ -282,7 +295,7 @@ export default function MedicationsScreen() {
   }, [snapshot]);
 
   async function connect() {
-    if (loading) return;
+    if (loading || isSample) return;
 
     setLoading(true);
     setError('');
@@ -302,6 +315,7 @@ export default function MedicationsScreen() {
 
       const attempt: NativeAttempt = {
         id: started.id,
+        generation: getGeneration(),
         secret: started.secret,
       };
 
@@ -385,7 +399,7 @@ export default function MedicationsScreen() {
 
           <View style={styles.notice}>
             <Text style={styles.noticeText}>
-              Epic sandbox demonstration — fictional patient data.
+              {modeLabel(mode)} — test data only.
             </Text>
           </View>
 
@@ -407,7 +421,7 @@ export default function MedicationsScreen() {
               </Text>
           ) : null}
 
-          {!snapshot && !loading && (
+          {!snapshot && !loading && !isSample && (
               <View style={styles.card}>
                 <Text style={styles.cardTitle}>Connect to Epic</Text>
 
@@ -427,6 +441,14 @@ export default function MedicationsScreen() {
                   </Text>
                 </Pressable>
               </View>
+          )}
+
+          {isSample && !loading && !snapshot && (
+              <Pressable style={styles.button} accessibilityRole="button" onPress={() => {
+                setError('');
+                setLoading(true);
+                setReload((value) => value + 1);
+              }}><Text style={styles.buttonText}>Try Again</Text></Pressable>
           )}
 
           {snapshot && (
@@ -520,11 +542,11 @@ export default function MedicationsScreen() {
                     </View>
                 ))}
 
-                <Pressable
+                {!isSample && <Pressable
                     style={styles.button}
                     accessibilityRole="button"
                     onPress={() => {
-                      demoToken = null;
+                      mobileSession.token = null;
                       pendingLogin = null;
                       setSnapshot(null);
                       setError('');
@@ -532,7 +554,7 @@ export default function MedicationsScreen() {
                     }}
                 >
                   <Text style={styles.buttonText}>Disconnect</Text>
-                </Pressable>
+                </Pressable>}
               </>
           )}
         </ScrollView>
