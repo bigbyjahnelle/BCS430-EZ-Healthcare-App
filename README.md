@@ -1,603 +1,263 @@
-# EZ Healthcare — Local Setup and Run Guide
+# EZ Healthcare
 
-EZ Healthcare is an accessibility-focused mobile application intended for older adults and individuals with disabilities.
+EZ Healthcare is a senior-project mobile prototype designed to make healthcare information easier to navigate for older adults and people with disabilities. The interface emphasizes clear labels, large controls, and straightforward navigation.
 
-The project uses React Native, Expo, TypeScript, a Node.js/Express backend, PostgreSQL, and Epic’s FHIR sandbox.
+This is a development prototype, not a production healthcare application. Use fictional local records and Epic sandbox accounts only.
 
-This guide explains how to install the required software and run the application locally using an Android Studio emulator.
+## Current Functionality
 
-All healthcare records used in the current Epic integration are synthetic sandbox data. Do not use real patient accounts or medical information.
+The Welcome screen lets you choose **Sample Data Mode** or **API Mode**. Both choices open the same Home screen and use the same record-screen layouts.
 
-## Current Project Status
+| Feature | Sample Data Mode | API Mode |
+| --- | --- | --- |
+| Medication Records | Fictional medication orders from PostgreSQL | Authorized Epic sandbox medication orders |
+| My Providers | Fictional prescribing providers from PostgreSQL | Providers referenced by retrieved medication orders; details depend on access |
+| My Health / My Vitals | Fictional vital signs from PostgreSQL | Epic vital-sign lookup; may return errors or no results |
+| Messages, Test Results, Insurance, Share | Not implemented in this update | Not implemented in this update |
 
-The application is under development. Some screens and controls remain placeholders.
+The appointment feature is being developed separately. The Home button in the source used for this update is still a placeholder. Check for newer team changes before replacing files.
 
-The current medication connection supports:
+Ask EZ voice functionality, medication reminders, and EZ Healthcare account authentication remain separate work items. The existing login/signup screens do not yet provide working account authentication.
 
-1. Opening Medications in EZ Healthcare.
-2. Selecting Connect to Epic.
-3. Signing into Epic’s sandbox through the emulator’s browser.
-4. Approving access to the requested information.
-5. Selecting Return to EZ Healthcare.
-6. Viewing the synthetic patient’s medication records.
+API Mode never substitutes sample records when an Epic request fails. Completed medication orders retain their status and are not presented as active prescriptions.
 
-Users no longer need to copy or manually enter a pairing code. The backend handles the temporary connection exchange behind the scenes.
-
-This is a local prototype, not a production healthcare deployment.
-
-The updated workflow has been tested during development on macOS. Windows instructions are included but should be verified on each teammate’s computer.
-
-## Contents
-
-1. [Understand the components](#1-understand-the-components)
-2. [Install Node.js and an editor](#2-install-nodejs-and-an-editor)
-3. [Download and open the project](#3-download-and-open-the-project)
-4. [Install project dependencies](#4-install-project-dependencies)
-5. [Install PostgreSQL](#5-install-postgresql)
-6. [Create the database](#6-create-the-database)
-7. [Configure the backend](#7-configure-the-backend)
-8. [Install Android Studio and configure the SDK](#8-install-android-studio-and-configure-the-sdk)
-9. [Install and select Java 17](#9-install-and-select-java-17)
-10. [Build and start the application](#10-build-and-start-the-application)
-11. [Connect to Epic](#11-connect-to-epic)
-12. [Regular startup after initial setup](#12-regular-startup-after-initial-setup)
-13. [Troubleshooting](#13-troubleshooting)
-14. [Development and Git guidelines](#14-development-and-git-guidelines)
-15. [Reference links](#15-reference-links)
-
-## 1. Understand the Components
+## Architecture
 
 | Component | Purpose |
 | --- | --- |
-| React Native and Expo | Run the mobile interface |
-| Expo development build | Provides the installed EZ Healthcare app and its return-to-app URL scheme |
-| Android Studio emulator | Runs a virtual Android phone |
-| Node.js and Express | Handle Epic authorization, data retrieval, and mobile connection requests |
-| PostgreSQL | Stores local sample application data |
-| Epic FHIR sandbox | Supplies synthetic patient and medication records |
+| React Native, Expo, TypeScript, Expo Router | Mobile screens and navigation |
+| Android Studio emulator | Local virtual Android device |
+| Node.js and Express | Local API, Epic authorization, and data requests |
+| PostgreSQL | Local application tables and fictional sample fixtures |
+| Epic FHIR sandbox | Authorized synthetic healthcare records |
 
-Keep PostgreSQL, the backend, Expo’s development server, and the emulator running while using the application.
+The mobile app calls Express; it does not connect directly to PostgreSQL.
 
-Internet access is required for Epic authorization and data retrieval.
+The current Epic medication/provider snapshot and mobile sessions are stored in backend memory, not automatically persisted to PostgreSQL. Vitals are requested through their own backend route.
 
-### Data storage
+## Requirements
 
-The PostgreSQL database contains seeded application records, including a sample user, accessibility settings, medication, and appointment.
+- The team's current GitHub branch, including matching lockfiles.
+- Node.js 24 LTS and npm.
+- PostgreSQL running locally.
+- Android Studio, Android SDK tools, an emulator, and a compatible Java Development Kit.
+- An editor such as IntelliJ IDEA or VS Code.
+- The team's non-production Epic app configuration for backend startup.
 
-The current Epic medication snapshot is stored separately in backend memory. It is not automatically saved into PostgreSQL.
+The main tested workflow is a local Android development build on macOS. Windows instructions are included but should be rehearsed on the target machine. iOS setup is not covered by this guide.
 
-Restarting the backend clears its temporary Epic sessions, pending mobile sign-ins, and medication snapshots.
+**Use the EZ Healthcare development build, not Expo Go, for the custom Epic return link.**
 
-### Supported local setup
+## 1. Get the Project
 
-These instructions assume the backend and Android emulator run on the same computer.
+Clone the repository using its GitHub URL, or download and extract the team's branch ZIP. Open the project folder in your editor.
 
-A physical phone requires additional networking and callback configuration. Scanning an Expo QR code with a phone is not sufficient for this setup.
+The **project root** contains:
 
-### Terminal basics
+- `package.json`
+- `src`
+- `backend`
+- `database`
 
-- The project root contains `package.json`, `backend`, `database`, and `src`.
-- The backend has its own `package.json` and dependency installation.
-- `cd backend` moves from the project root into the backend folder.
-- `cd ..` moves up one folder.
-- Run each command from the folder specified.
-- Do not copy terminal prompts or Markdown fence markers.
-- A running server occupies its terminal. Use another terminal tab for other commands.
+In IntelliJ, open **View → Tool Windows → Terminal**.
 
-IntelliJ’s terminal is available through:
+Commands below assume you are in the specified folder. Do not run Expo from `backend`.
 
-**View → Tool Windows → Terminal**
+Never replace an entire source folder with a partial update ZIP. Copy changed files to their matching paths and preserve teammates' work.
 
-IntelliJ is optional. The same commands can run in a normal terminal.
+## 2. Install Dependencies
 
-## 2. Install Node.js and an Editor
+Install Node.js from [Node.js downloads](https://nodejs.org/en/download).
 
-### Node.js
-
-1. Open https://nodejs.org/en/download.
-2. Install Node.js 24 LTS, matching the major version used during development.
-3. Select the installer for your operating system and processor.
-4. Keep npm and the installer’s PATH configuration enabled.
-5. Restart your terminal and editor after installation.
-
-Verify:
+Reopen your terminal, then check:
 
 ```sh
 node --version
 npm --version
 ```
 
-Node should print a version beginning with `v24.`.
-
-### Editor
-
-The team uses IntelliJ IDEA:
-
-https://www.jetbrains.com/idea/download/
-
-An existing editor and system terminal also work.
-
-You do not need to purchase a database editor or configure IntelliJ’s database tools to run the SQL setup script.
-
-### Expo
-
-Expo dependencies are installed from this repository.
-
-Do not create a new Expo project or install the deprecated global `expo-cli`.
-
-The Epic return-to-app workflow uses an EZ Healthcare development build, not Expo Go.
-
-## 3. Download and Open the Project
-
-1. Obtain the repository link and current development branch from the team.
-2. Sign into GitHub and accept any required repository invitation.
-3. Select the correct branch.
-4. Clone the repository using your normal Git workflow, or choose **Code → Download ZIP**.
-5. If downloading a ZIP, extract it before opening the project.
-6. Open the extracted or cloned project folder in your editor.
-
-Open the project root, not only the `backend` folder.
-
-### Check your current folder
-
-macOS:
-
-```sh
-pwd
-ls
-```
-
-Windows Command Prompt:
-
-```bat
-cd
-dir
-```
-
-The folder listing should contain:
-
-```text
-package.json
-package-lock.json
-backend
-database
-src
-```
-
-### Required source files
-
-Confirm the current branch includes:
-
-```text
-app.json
-package.json
-package-lock.json
-database/setup.sql
-backend/package.json
-backend/package-lock.json
-backend/src/server.ts
-backend/src/epic.ts
-backend/src/mobileDemo.ts
-backend/src/nativeAuth.ts
-src/screens/HomeScreen.tsx
-src/screens/MedicationsScreen.tsx
-src/app/medications.tsx
-assets/images/ez-logo.png
-```
-
-If required files are missing, obtain the latest project changes before continuing.
-
-## 4. Install Project Dependencies
-
-From the project root:
+From the project root, run these commands one at a time:
 
 ```sh
 npm ci
-```
-
-Then install backend dependencies:
-
-```sh
 cd backend
 npm ci
 cd ..
 ```
 
-Wait for each installation to finish.
+This installs frontend and backend dependencies separately.
 
-The current frontend dependency files should include `expo-dev-client` and `expo-web-browser`.
+Keep the committed dependency versions. If `npm ci` reports mismatched or missing lockfiles, ask the developer for matching package files rather than upgrading packages.
 
-If those packages are missing, ask the developer to confirm that the current dependency files have been committed. When intentionally adding them during development, use:
+Do not run `npm audit fix --force` as a setup step.
 
-```sh
-npx expo install expo-dev-client expo-web-browser
-```
+## 3. Install and Start PostgreSQL
 
-Do not upgrade the Expo SDK or run `npm audit fix --force` as a setup workaround.
+### macOS
 
-If `npm ci` reports mismatched package and lockfiles, resolve that mismatch with the developer.
+Install [Postgres.app](https://postgresapp.com/documentation/install.html) in Applications, launch it, and initialize/start a local server.
 
-### Windows terminal note
-
-These Windows instructions use Command Prompt.
-
-If PowerShell blocks `npm.ps1`, enter:
-
-```bat
-cmd
-```
-
-Then run the npm commands there. Alternatively, use `npm.cmd` and `npx.cmd` from PowerShell.
-
-## 5. Install PostgreSQL
-
-Use one PostgreSQL installation. Do not install a second server if you already have a working one.
-
-### macOS: Postgres.app
-
-1. Download Postgres.app from https://postgresapp.com/.
-2. Move the application into Applications.
-3. Open it.
-4. Select Initialize for a new server, or start an existing server.
-5. Confirm the server is running on port 5432.
-
-To make its command-line tools available, run:
-
-```sh
-sudo mkdir -p /etc/paths.d
-```
-
-```sh
-echo /Applications/Postgres.app/Contents/Versions/latest/bin | sudo tee /etc/paths.d/postgresapp
-```
-
-If prompted, enter your Mac account password. Password characters will not appear.
-
-Restart your terminal and editor, then verify:
+Add its command-line tools to your shell PATH using the linked instructions. Reopen your terminal and check:
 
 ```sh
 psql --version
-```
-
-Find your Mac short account name:
-
-```sh
 whoami
 ```
 
-With the default Postgres.app setup, this is normally your database username.
+With the usual Postgres.app setup, the database username matches your Mac short account name. Use your actual database account if configured differently.
 
-If your installation requires a database password, use its configured password.
+### Windows
 
-### Windows: PostgreSQL installer
+Install PostgreSQL through [the official Windows download page](https://www.postgresql.org/download/windows/), including the server and command-line tools.
 
-1. Open https://www.postgresql.org/download/windows/.
-2. Follow the EDB installer link.
-3. Choose a supported stable release, such as PostgreSQL 18.
-4. Install PostgreSQL Server and Command Line Tools.
-5. Keep port 5432 unless your existing setup uses another port.
-6. Save the password you choose for the `postgres` account privately.
-7. Complete installation. Additional Stack Builder packages are unnecessary for this workflow.
+Save the password you choose for the `postgres` account.
 
-Add PostgreSQL’s `bin` folder to your user Path.
+Add your installed PostgreSQL `bin` directory to your user PATH, restart the terminal, and verify:
 
-For a default PostgreSQL 18 installation:
-
-```text
-C:\Program Files\PostgreSQL\18\bin
-```
-
-Use your actual installation folder if different.
-
-To edit Path:
-
-1. Search Windows for **Edit environment variables for your account**.
-2. Select **Path → Edit → New**.
-3. Add the PostgreSQL `bin` path.
-4. Preserve all existing entries.
-5. Save and restart your editor and terminal.
-
-Verify:
-
-```bat
+```sh
 psql --version
 ```
 
-Open Windows Services and confirm the PostgreSQL service is running.
+Confirm the PostgreSQL service is running in Windows Services.
 
-The default database account for this installer is usually `postgres`, not your Windows account name.
+Use your actual installation folder and version, not another teammate's path.
 
-## 6. Create the Database
+### Create and Seed the Database
 
-PostgreSQL must be running.
-
-Run the following from the project root.
-
-### macOS with default Postgres.app credentials
+From the project root, on macOS with the default local account:
 
 ```sh
 createdb ez_healthcare_demo
-```
-
-```sh
 psql -d ez_healthcare_demo -v ON_ERROR_STOP=1 -f database/setup.sql
+psql -d ez_healthcare_demo -v ON_ERROR_STOP=1 -f database/seed-sample-mode.sql
 ```
 
-### Windows with the postgres account
+On Windows using the `postgres` account:
 
-```bat
+```sh
 createdb -h localhost -p 5432 -U postgres -W ez_healthcare_demo
-```
-
-```bat
 psql -h localhost -p 5432 -U postgres -W -d ez_healthcare_demo -v ON_ERROR_STOP=1 -f database/setup.sql
+psql -h localhost -p 5432 -U postgres -W -d ez_healthcare_demo -v ON_ERROR_STOP=1 -f database/seed-sample-mode.sql
 ```
 
-Enter your database password when prompted.
+Enter the database password when prompted.
 
-### Expected result
+If the database already exists, skip `createdb`.
 
-The setup script should complete without an error and display table creation, insert, and transaction messages.
+If the original setup was already completed, do not repeat it just to install Sample Data Mode. Run only the new seed script.
 
-The seeded records include:
+| SQL File | Purpose |
+| --- | --- |
+| `database/setup.sql` | Original local user, accessibility, medication, and appointment tables |
+| `database/seed-sample-mode.sql` | Fictional medication, provider, and vital-sign payloads for the shared screens |
+| `database/seed-demo.sql` | Older standalone demo; not needed by the new modes |
 
-- A synthetic application user: Matt Demo.
-- The sample email `matt@example.test`.
-- Accessibility settings.
-- Sample Medication A.
-- An appointment with Dr. Demo.
+The new seed script should print `COMMIT` and three section rows:
 
-These are sample records, not computer-specific configuration or real patient information.
+- `medications`
+- `providers`
+- `vitals`
 
-If the database already exists, skip `createdb`. Do not delete the database to remove that message.
+It creates `ez_sample_payloads` and updates its three fictional fixtures when rerun. It does not replace the original application tables.
 
-Database creation is a first-time setup task, not a regular startup step.
+Do not put real patient data into the sample table.
 
-Each teammate needs a local database. Git does not copy another teammate’s running database.
+## 4. Configure the Backend
 
-## 7. Configure the Backend
+Create `backend/.env`.
 
-Create a file named exactly `.env` inside `backend`.
-
-Its path must be:
-
-```text
-backend/.env
-```
-
-Do not name it `backend.env` or `.env.txt`.
-
-### macOS example
+The filename must be exactly `.env`, not `backend.env` or `.env.txt`.
 
 ```dotenv
 PORT=3001
 PGHOST=localhost
 PGPORT=5432
 PGDATABASE=ez_healthcare_demo
-PGUSER=YOUR_MAC_SHORT_USERNAME
+PGUSER=YOUR_LOCAL_DATABASE_USERNAME
 
-EPIC_CLIENT_ID=0dfd33ec-b7df-4954-a807-5975bbddbac3
+# Add this if your database requires a password:
+# PGPASSWORD="YOUR_LOCAL_DATABASE_PASSWORD"
+
+EPIC_CLIENT_ID=YOUR_TEAM_NON_PRODUCTION_CLIENT_ID
 EPIC_REDIRECT_URI=http://localhost:3001/api/epic/callback
 EPIC_FHIR_BASE_URL=https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4
 ```
 
-Replace `YOUR_MAC_SHORT_USERNAME` with your actual database username. For default Postgres.app installations, check `whoami`.
+Replace the username and client ID placeholders.
 
-If needed, add:
+Windows installer setups commonly use `postgres` as the database username.
 
-```dotenv
-PGPASSWORD="YOUR_DATABASE_PASSWORD"
+Obtain the team's registered non-production client ID from the project developer. Do not create a new registration unnecessarily.
+
+Keep the callback and sandbox URLs exactly as shown: the current backend validates them. Do not change the callback to the Android emulator address.
+
+**Even Sample Data Mode currently requires the Epic settings to be present**, because the backend imports the Epic router at startup. Sample requests themselves do not sign in or contact Epic.
+
+Keep `.env` and `node_modules` out of Git. Do not commit passwords, tokens, session cookies, or authorization codes. Keep credentials out of frontend code.
+
+## 5. Set Up the Android Emulator
+
+Install [Android Studio](https://developer.android.com/studio).
+
+Follow [Expo's Android environment guide](https://docs.expo.dev/workflow/android-studio-emulator/) for your operating system, including its JDK and SDK prerequisites.
+
+The guide specifies JDK 17. Avoid using an incompatible newer JDK for the project's Gradle build.
+
+In Android Studio:
+
+1. Complete the setup wizard and SDK downloads.
+2. Open SDK Manager and note the Android SDK Location.
+3. Install Android SDK Platform-Tools and Android Emulator, plus the SDK/build tools required by the project build.
+4. Open Device Manager.
+5. Create a Pixel virtual device with a compatible stable system image.
+6. Start the device.
+7. Wait until the Android home screen appears.
+
+Configure `ANDROID_HOME` and add the SDK's `platform-tools` and `emulator` folders to PATH using the environment guide.
+
+On macOS, the usual SDK location is:
+
+```text
+$HOME/Library/Android/sdk
 ```
 
-### Windows example
+On Windows, use the actual path from SDK Manager. Do not copy a teammate's username into it.
 
-```dotenv
-PORT=3001
-PGHOST=localhost
-PGPORT=5432
-PGDATABASE=ez_healthcare_demo
-PGUSER=postgres
-PGPASSWORD="YOUR_DATABASE_PASSWORD"
-
-EPIC_CLIENT_ID=0dfd33ec-b7df-4954-a807-5975bbddbac3
-EPIC_REDIRECT_URI=http://localhost:3001/api/epic/callback
-EPIC_FHIR_BASE_URL=https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4
-```
-
-Replace the password placeholder with your actual local PostgreSQL password.
-
-### Important configuration notes
-
-- URLs in `.env` must be plain URLs, not Markdown links.
-- Retain the exact callback URL shown above for this implementation.
-- Do not replace the callback’s `localhost` with `10.0.2.2`.
-- The client ID identifies the team’s non-production Epic registration. It is not an access token.
-- Teammates using the same registration do not need separate Epic app registrations.
-- If the team replaces its Epic registration, obtain the updated non-production client ID.
-- Keep `.env` out of Git.
-- Never put database passwords or Epic access tokens into frontend code.
-
-## 8. Install Android Studio and Configure the SDK
-
-### Install Android Studio
-
-1. Download Android Studio from https://developer.android.com/studio.
-2. Select the version matching your operating system and processor.
-3. Complete the standard setup wizard.
-4. Accept the required SDK licenses.
-5. Allow the SDK downloads to finish.
-
-Open SDK Manager from the welcome screen’s More Actions menu or Android Studio’s settings.
-
-Record the Android SDK Location.
-
-Ensure the Android Emulator and Android SDK Platform-Tools are installed. Install any additional SDK platforms, build tools, or native build components requested by the project’s build.
-
-Do not create a separate Android project.
-
-### macOS environment variables
-
-For the default SDK location, run these commands in the terminal you will use:
+Verify in a newly opened terminal:
 
 ```sh
-export ANDROID_HOME="$HOME/Library/Android/sdk"
-export PATH="$PATH:$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator"
-```
-
-If your SDK is elsewhere, substitute its actual path.
-
-For future terminal sessions, add these lines once to your shell configuration, normally `~/.zshrc`, then restart the terminal.
-
-### Windows environment variables
-
-Open **Edit environment variables for your account**.
-
-Create:
-
-```text
-ANDROID_HOME
-```
-
-Set it to the SDK location shown in Android Studio. The usual location is:
-
-```text
-C:\Users\YOUR_WINDOWS_USERNAME\AppData\Local\Android\Sdk
-```
-
-Add these entries to your user Path:
-
-```text
-%ANDROID_HOME%\platform-tools
-%ANDROID_HOME%\emulator
-```
-
-Keep existing Path entries. Save and restart your editor and terminal.
-
-### Verify Android tools
-
-```sh
+java -version
 adb --version
-```
-
-### Configure android/local.properties
-
-If the `android` folder already exists, open or create:
-
-```text
-android/local.properties
-```
-
-Set `sdk.dir` to your actual Android SDK location.
-
-macOS example:
-
-```properties
-sdk.dir=/Users/YOUR_MAC_USERNAME/Library/Android/sdk
-```
-
-Windows example using forward slashes:
-
-```properties
-sdk.dir=C:/Users/YOUR_WINDOWS_USERNAME/AppData/Local/Android/Sdk
-```
-
-If the `android` folder has not been generated yet, configure `ANDROID_HOME` before the first build. The build process generates the native project.
-
-Do not commit `android/local.properties`. It contains a machine-specific path.
-
-### Create and start the emulator
-
-1. Open Android Studio.
-2. Select **More Actions → Virtual Device Manager**, or **Tools → Device Manager**.
-3. Choose Create Virtual Device.
-4. Select a Pixel phone profile.
-5. Download a stable Android image supported by the project.
-6. Select the appropriate architecture: typically ARM64 for Apple Silicon or x86_64 for Intel/AMD.
-7. Finish creating the device.
-8. Press its Play button.
-9. Wait for Android’s home screen and unlock the device.
-
-Verify:
-
-```sh
 adb devices
 ```
 
 The emulator should appear with status `device`.
 
-## 9. Install and Select Java 17
+## 6. Build the Development App Once
 
-Building the Android development app requires a compatible Java installation.
+If the current EZ Healthcare development build is already installed, skip this section.
 
-The working local setup uses JDK 17. Newer Java versions should not automatically be selected for this project.
-
-Download Temurin JDK 17 from:
-
-https://adoptium.net/temurin/releases/?version=17
-
-Choose JDK, version 17, and the operating system and architecture matching your computer.
-
-### macOS
-
-Install the `.pkg`, then list installed Java versions:
+With the emulator running, from the project root:
 
 ```sh
-/usr/libexec/java_home -V
+npx expo run:android
 ```
 
-Select Java 17 in your build terminal:
+This builds and installs the native app. The first build can take time to download dependencies.
 
-```sh
-export JAVA_HOME=$(/usr/libexec/java_home -v 17)
-export PATH="$JAVA_HOME/bin:$PATH"
-java -version
-```
+See [Expo's development-build guide](https://docs.expo.dev/develop/development-builds/introduction/) for background.
 
-Confirm the output reports Java 17.
+The project already includes `expo-dev-client` and its custom `ezhealthcare` scheme. Do not create another Expo project.
 
-These settings apply to the current terminal. To use them in future sessions, add the export lines once to your shell configuration or repeat them before building.
+JavaScript/TypeScript screen changes normally need a reload, not another native build. Native dependency or configuration changes may require rebuilding.
 
-### Windows
+## 7. Start the Application Each Session
 
-Install Temurin JDK 17.
+Keep PostgreSQL, the emulator, the backend, and Expo running.
 
-Set your user `JAVA_HOME` variable to its installation directory, not the `bin` subfolder.
+Use separate terminal tabs.
 
-An example structure is:
-
-```text
-C:\Program Files\Eclipse Adoptium\YOUR_JDK_17_FOLDER
-```
-
-Replace that placeholder with the actual installed directory.
-
-Add this entry to your user Path:
-
-```text
-%JAVA_HOME%\bin
-```
-
-Make sure an older Java Path entry is not taking precedence. Restart the terminal.
-
-Verify:
-
-```bat
-java -version
-```
-
-The output should report Java 17.
-
-## 10. Build and Start the Application
-
-Use separate terminal tabs for the backend and frontend.
-
-### A. Start PostgreSQL
-
-macOS: open Postgres.app and start its server.
-
-Windows: confirm the PostgreSQL service is running.
-
-### B. Start the backend
+### Terminal 1: Backend
 
 From the project root:
 
@@ -606,53 +266,19 @@ cd backend
 npm run dev
 ```
 
-Expected messages include:
-
-```text
-Connected to PostgreSQL!
-EZ Healthcare backend: http://localhost:3001
-Epic sandbox sign-in: http://localhost:3001/api/epic/login
-```
-
-Leave this terminal running.
-
-Only one backend should use port 3001.
-
-### C. Forward the emulator’s localhost port
-
-In another terminal:
+If already in `backend`, run only:
 
 ```sh
-adb reverse tcp:3001 tcp:3001
+npm run dev
 ```
 
-This forwards connections from the Android device’s port 3001 to your computer’s port 3001.
+Wait for the PostgreSQL connection and backend startup messages. Keep this terminal open.
 
-The forwarding is necessary because the Epic callback uses:
+In your computer browser, open:
 
-```text
-http://localhost:3001/api/epic/callback
-```
+[http://localhost:3001/api/health](http://localhost:3001/api/health)
 
-Repeat the forwarding command after restarting or reconnecting the emulator.
-
-If multiple Android devices are connected, use `adb devices` and select the intended emulator:
-
-```sh
-adb -s YOUR_EMULATOR_SERIAL reverse tcp:3001 tcp:3001
-```
-
-Replace `YOUR_EMULATOR_SERIAL` with the actual serial.
-
-### D. Check connectivity
-
-Open Chrome inside the emulator and visit:
-
-```text
-http://localhost:3001/api/health
-```
-
-Expected response:
+Expect:
 
 ```json
 {
@@ -662,457 +288,238 @@ Expected response:
 }
 ```
 
-Do not proceed with Epic login until this works.
+This checks the server/database connection, not whether sample tables exist or Epic authorization works.
 
-### E. Build the development app
+### Terminal 2: Emulator Port Forwarding
 
-In a terminal at the project root, with Java 17 selected:
+With the emulator running:
 
 ```sh
-npx expo run:android
+adb reverse tcp:8081 tcp:8081
+adb reverse tcp:3001 tcp:3001
 ```
 
-This builds and installs EZ Healthcare in the emulator.
+Repeat after restarting the emulator if necessary.
 
-The first build can take longer because Gradle downloads dependencies and native build components.
+- Port `8081` is Expo.
+- Port `3001` is the backend.
+- Forwarding `3001` supports the registered localhost callback in the emulator browser.
 
-Wait for `BUILD SUCCESSFUL` and the app to open.
-
-If the build asks for an Android application identifier, use the team’s established identifier. Do not choose a different identifier for an existing project.
-
-The existing local build was observed using `com.anonymous.ezhealthcare`; check the current app/native configuration before relying on a package name.
-
-### F. Start Expo for an already installed development build
-
-On later runs, a full native rebuild is normally unnecessary for TypeScript-only changes.
+### Terminal 3: Expo
 
 From the project root:
 
 ```sh
-npx expo start --dev-client
+npx expo start --dev-client --localhost
 ```
 
-Press `a` in that terminal to open Android.
+Press **a** in this terminal to open Android.
 
-Use the installed EZ Healthcare development app, not Expo Go.
+Confirm the terminal says it is using a development build. Keep it running.
 
-Rebuild when native dependencies or native configuration change.
+The first native-build command may already have started Expo. Stop that instance before starting another.
 
-### Address reference
+Keep one Expo server on `8081` and one backend on `3001`.
 
-| Purpose | Address |
-| --- | --- |
-| Backend from the computer | `http://localhost:3001` |
-| Backend API from Android application code | `http://10.0.2.2:3001` |
-| Backend from emulator browser with port forwarding | `http://localhost:3001` |
-| Epic callback | `http://localhost:3001/api/epic/callback` |
-| Return link into EZ Healthcare | `ezhealthcare://medications` |
+## 8. Use Sample Data Mode
 
-The Epic callback and the return-to-app link are different steps.
+1. On Welcome, select **Sample Data Mode**.
+2. Tap **Continue**.
+3. Tap **Medications** to retrieve Taylor Sample's fictional medication orders.
+4. Return Home and open **My Providers** to view fictional provider names.
+5. Open **My Health** to view fictional vital readings.
 
-Epic returns to the backend callback first. The backend completes authorization and prepares the data, then displays a link back to the mobile app.
+No Epic login is needed.
 
-## 11. Connect to Epic
+Once dependencies and builds are installed, this mode does not need Epic internet access, but it still needs the local Express server and PostgreSQL.
 
-Keep PostgreSQL, the backend, Expo, and the emulator running.
+Records are clearly labeled as fictional. The screens are the same screens used by API Mode, not a separate demo layout.
 
-1. Open EZ Healthcare in the emulator.
-2. Navigate to the home screen using the current prototype navigation.
-3. Select Medications.
-4. Select Connect to Epic.
-5. The emulator opens Epic’s sandbox authorization page.
+## 9. Use API Mode
 
-Use the public synthetic test account used during development:
+1. On Welcome, select **API Mode**.
+2. Tap **Continue**.
+3. Open **Medications → Connect to Epic**.
+4. Complete the Epic sandbox login and consent screens in the emulator's browser session.
+5. Approve access and use the return-to-app action if displayed.
+6. After returning to EZ Healthcare, verify the patient, medication source, retrieval time, and order status.
+7. Open **My Providers** and **My Health** to request their API-backed information using the current mobile connection.
+
+Use the team's verified synthetic test account, not a personal patient account.
+
+The previously used test username is `fhirderrick`. Ask the developer for the current test credentials.
+
+Authorization temporarily uses the browser. The return link brings the user back to the app.
+
+The normal mobile flow no longer requires manually copying a pairing code. The backend still uses a temporary code internally to complete the mobile handoff.
+
+Epic login authorizes access to sandbox data; it is not a complete EZ Healthcare account-login implementation.
+
+### API Limitations Observed During Development
+
+- Medication retrieval has worked with the synthetic test account.
+- Practitioner-detail requests have returned HTTP 403. A linked provider may therefore show only a generic display name such as “Physician.”
+- Vital-sign requests have timed out. A timeout does not prove that no vital data exists.
+- Epic's login page has sometimes remained white inside emulator Chrome while loading on the host computer. The cause has not been established.
+
+Sample mode is an explicit user choice, never an automatic fallback for these failures.
+
+## 10. Switch Modes
+
+Tap the mode indicator / **Change** on Home to return to Welcome. Select a mode and tap **Continue**.
+
+Selecting a mode clears the app's in-memory mobile token and remounts navigation to prevent previously displayed data from carrying over.
+
+API Mode requires a new connection after switching. Mode selection is not permanently stored.
+
+This local reset is not production token revocation and does not necessarily clear Epic browser cookies.
+
+Backend restarts also clear in-memory authorization, session, and snapshot state. Avoid editing backend files while demonstrating an active API session: the development watcher may restart it.
+
+The old `/demo` route now opens Welcome. `src/app/demo.tsx` being a one-line re-export is intentional.
+
+The unused `ModeChoices.tsx` and old seed file are not required for the current flow.
+
+## 11. Troubleshooting
+
+### “Sample Data Is Unavailable”
+
+From the project root, run:
+
+```sh
+psql -d ez_healthcare_demo -v ON_ERROR_STOP=1 -f database/seed-sample-mode.sql
+```
+
+Use your PostgreSQL username/host options if required.
+
+Check this endpoint in the host browser:
+
+[http://localhost:3001/api/sample/medications](http://localhost:3001/api/sample/medications)
+
+Then tap **Try Again** in the app.
+
+If it still fails, inspect the backend line starting:
 
 ```text
-Username: fhirderrick
-Password: epicepic1
+Sample data lookup failed:
 ```
 
-6. Complete the sharing and consent prompts.
-7. Select Allow Access.
-8. Look for the local confirmation page stating that the Epic connection succeeded.
-9. Select Return to EZ Healthcare within one minute.
-10. The app should open and load the medication record.
+Confirm the seed command and `.env` point to the same database and server.
 
-Do not use your personal Epic developer credentials or a real MyChart patient account for this sandbox patient login.
+### “localhost Refused to Connect” or Connection to 10.0.2.2:3001 Failed
 
-If the shared test account becomes unavailable, ask the developer to confirm an available Epic sandbox account.
+Verify the backend terminal is running and the health endpoint works on the host computer.
 
-### EZ Healthcare login versus Epic authorization
-
-The application’s own Login and Sign Up screens are separate prototype features. They do not become working account authentication simply because Epic authorization works.
-
-Epic’s test credentials belong only on Epic’s authorization page.
-
-If the application’s own placeholder login prevents reaching Home, ask the team for the current prototype navigation. Do not assume that entering Epic credentials there will work.
-
-### How the mobile connection works
-
-- The mobile app creates a temporary sign-in attempt with the backend.
-- The app opens Epic’s authorization flow in a browser session.
-- The backend validates OAuth state and exchanges the authorization code using PKCE.
-- The backend retrieves the authorized patient and medication data.
-- The confirmation page provides a return-to-app link.
-- The app uses its temporary secret to collect the connection result.
-- The existing single-use pairing exchange happens automatically behind the scenes.
-- The app receives a separate local snapshot token.
-
-The Epic access token stays on the backend. It is not included in the return link.
-
-### Snapshot behavior
-
-The app displays a saved snapshot, not a continuously updating medication feed.
-
-The current snapshot expires approximately 30 minutes after retrieval.
-
-To retrieve a new snapshot:
-
-1. Select Disconnect on the medication screen.
-2. Select Connect to Epic.
-3. Complete authorization again.
-
-Disconnect clears the mobile app’s local demo connection. It does not revoke the authorization granted in Epic or necessarily remove the backend snapshot immediately.
-
-Restarting the backend also invalidates temporary sessions and snapshots.
-
-### Medication status
-
-The observed sandbox response contained an aspirin 325 MG tablet order marked `completed`, with an order date in 2019.
-
-Present completed orders as historical medication orders, not active prescriptions.
-
-Sandbox contents can change, so the medication count and returned details may vary.
-
-### Successful connection checklist
-
-- [ ] Backend starts without errors.
-- [ ] Emulator localhost health check reports `ok`.
-- [ ] EZ Healthcare opens as a development build.
-- [ ] Connect to Epic opens the sandbox login.
-- [ ] Epic authorization succeeds.
-- [ ] Return to EZ Healthcare opens the app.
-- [ ] Patient and medication details load.
-- [ ] Source and order status are displayed accurately.
-
-## 12. Regular Startup After Initial Setup
-
-Do not reinstall dependencies, recreate the database, or recreate `.env` every time.
-
-1. Start PostgreSQL.
-2. Start the existing Android emulator in Android Studio.
-3. Open a terminal in `backend` and run:
-
-```sh
-npm run dev
-```
-
-4. In another terminal, run:
-
-```sh
-adb reverse tcp:3001 tcp:3001
-```
-
-5. Verify the emulator can open:
+Then open this address in emulator Chrome:
 
 ```text
-http://localhost:3001/api/health
+http://10.0.2.2:3001/api/health
 ```
 
-6. In a terminal at the project root, run:
+The mobile code uses `10.0.2.2` to reach the host.
+
+The Epic callback uses localhost through port forwarding.
+
+Keep these addresses distinct. Do not change the registered callback casually.
+
+### Port 3001 or 8081 Already in Use
+
+Find the terminal already running that service and reuse it, or stop it with **Ctrl+C** before restarting.
+
+Do not launch Expo inside `backend`, and do not switch ports just to hide the conflict.
+
+### Development Build Launcher or White App Screen
+
+Ensure Expo is running from the root with:
 
 ```sh
-npx expo start --dev-client
+npx expo start --dev-client --localhost
 ```
 
-7. Press `a` to open the development app.
-8. Open Medications and select Connect to Epic.
-9. Approve access and select Return to EZ Healthcare.
-10. Confirm the medication record loads.
+Set the `8081` port forwarding and press **a**.
 
-### Restarting the backend
+Check the Expo terminal for the first error, including its filename and line number. A syntax error is not solved by changing the network.
 
-Click inside its terminal and press Control+C.
-
-Then, from `backend`, run:
+If necessary, stop Expo and restart with:
 
 ```sh
-npm run dev
+npx expo start --dev-client --localhost --clear
 ```
 
-Start a fresh Epic connection after restarting.
+### White Epic Login Page Only in Emulator Chrome
 
-### Shutting down
+First distinguish this from an app-loading failure.
 
-- Press Control+C in the Expo terminal.
-- Press Control+C in the backend terminal.
-- Close the emulator.
-- Stop PostgreSQL if no other work needs it.
-
-Database records remain on disk. Temporary backend sessions do not survive a backend restart.
-
-## 13. Troubleshooting
-
-### Address already in use / EADDRINUSE on port 3001
-
-Another process already owns the backend port.
-
-Find the original backend terminal and stop that process with Control+C before starting another copy.
-
-On macOS, identify the listener with:
-
-```sh
-lsof -nP -iTCP:3001 -sTCP:LISTEN
-```
-
-On Windows:
-
-```bat
-netstat -ano | findstr :3001
-```
-
-Identify the process before stopping it. Do not terminate unrelated processes.
-
-A healthy response from an older backend does not prove your updated backend is running.
-
-### Emulator browser says localhost cannot be reached
-
-Run:
-
-```sh
-adb reverse tcp:3001 tcp:3001
-```
-
-Then test `/api/health` inside the emulator browser.
-
-If it still fails, test the same URL in the computer’s browser.
-
-If neither works, check the backend terminal and PostgreSQL.
-
-### Unsupported class file major version 71
-
-This error indicates the build tooling encountered Java 27 class files.
-
-Select Java 17 using Section 9, then stop existing Gradle daemons.
-
-macOS:
-
-```sh
-cd android
-./gradlew --stop
-cd ..
-npx expo run:android
-```
-
-Windows Command Prompt:
-
-```bat
-cd android
-gradlew.bat --stop
-cd ..
-npx expo run:android
-```
-
-Use the same terminal where Java 17 was selected.
-
-### SDK location not found
-
-Check Android Studio’s SDK Location.
-
-Set `ANDROID_HOME` or add the correct `sdk.dir` to:
+1. Confirm local health works inside the emulator.
+2. Confirm the browser has navigated to Epic.
+3. Compare the page on the host browser.
+4. Inspect emulator Chrome through the host Chrome page:
 
 ```text
-android/local.properties
+chrome://inspect/#devices
 ```
 
-Use your own machine’s SDK path.
+Report the first relevant network or console error, excluding tokens and authorization URLs.
 
-### Build shows CONFIGURING or IDLE
+Do not assume the campus network is blocking the emulator without diagnostic evidence.
 
-Those messages do not by themselves indicate failure.
+Sample Mode can still be tested separately.
 
-Gradle may be resolving or downloading dependencies. A configuration percentage is not the percentage of the entire build.
+### Android SDK Location Not Found
 
-Wait for `BUILD SUCCESSFUL` or a specific failure.
+Use the SDK Location shown by Android Studio.
 
-If output stops changing for an extended period, check connectivity and collect the relevant Gradle messages before changing configuration.
+Configure `ANDROID_HOME`, or set `sdk.dir` in `android/local.properties` to the actual local SDK path.
 
-### Build failed with a generic non-zero exit code
+Keep this machine-specific file out of Git.
 
-Scroll up to:
+### Unsupported Java Class-File Version
 
-```text
-What went wrong:
+Check:
+
+```sh
+java -version
 ```
 
-The final Expo stack trace often only reports that Gradle failed.
+Run this in the same terminal doing the build.
 
-Share the actual Gradle error section with the developer.
+Use the compatible JDK configured for this project rather than whichever newer JDK your shell happens to select. See the Android setup guide above.
 
-### Cannot find mobileDemo.js or nativeAuth.js
+### Epic 401, 403, or Timeout
 
-Confirm these source files exist:
+- **401:** Reconnect through Medications. The connection may have expired or the backend restarted.
+- **403:** Inspect granted permissions and the selected Epic API. An authorization failure is not proof that data is absent.
+- **Timeout:** Inspect the request and logs, then retry later. Do not label it “no records.”
+
+### “Cannot Find Module mobileDemo.js”
+
+Confirm this file exists:
 
 ```text
 backend/src/mobileDemo.ts
-backend/src/nativeAuth.ts
 ```
 
-Imports ending in `.js` are intentional in this TypeScript backend setup.
+The `.js` suffix in this project's TypeScript imports is intentional.
 
-Do not rename imports to `.ts.js`.
-
-Start the backend with:
+Start with:
 
 ```sh
 npm run dev
 ```
 
-### Database connection errors
+Do not rename imports to `.ts.js`.
 
-- Connection refused: confirm PostgreSQL is running and the port matches.
-- Role does not exist: correct `PGUSER`.
-- Password authentication failed: correct `PGPASSWORD`.
-- Database does not exist: complete the database setup.
-- After changing `.env`, restart the backend.
+### IntelliJ Warnings
 
-### Database already exists
+**“No data sources are configured”** is an editor SQL-tool warning. Use the documented `psql` command.
 
-Skip the creation command. Do not delete the existing database.
+**“Throw of exception caught locally”** describes the deliberate try/catch error-handling pattern and is not itself a compilation failure.
 
-### No data sources configured in IntelliJ
+### Windows PowerShell Blocks npm.ps1
 
-This is an editor integration message.
+Use Command Prompt, or invoke `npm.cmd` and `npx.cmd` from PowerShell.
 
-Run the SQL using the `psql` command in Section 6. A configured IntelliJ database connection is not required.
-
-### cd backend reports no such directory
-
-Check the current folder. You may already be inside `backend`.
-
-Use `cd ..` to return to the root when needed.
-
-### adb is not found
-
-Check the Android SDK Platform-Tools installation and Path configuration.
-
-On macOS, the default full executable path is:
-
-```text
-$HOME/Library/Android/sdk/platform-tools/adb
-```
-
-Example:
-
-```sh
-"$HOME/Library/Android/sdk/platform-tools/adb" reverse tcp:3001 tcp:3001
-```
-
-On Windows, use `adb.exe` from your SDK’s `platform-tools` folder if needed.
-
-### More than one device or emulator
-
-Run:
-
-```sh
-adb devices
-```
-
-Then use `adb -s YOUR_EMULATOR_SERIAL` for device-specific commands.
-
-### App opens in Expo Go
-
-Stop Expo and restart with:
-
-```sh
-npx expo start --dev-client
-```
-
-Open the installed EZ Healthcare development build.
-
-If no development build is installed, complete Section 10.
-
-### Native module missing after installing a package
-
-If a new native dependency was added after the development build was created, rebuild:
-
-```sh
-npx expo run:android
-```
-
-Restarting Metro alone cannot add a missing native module to an installed application.
-
-### Epic reports invalid client or redirect
-
-Check the team’s non-production client ID and exact callback URL.
-
-Restart the backend after editing `.env`.
-
-Do not change the callback to the app scheme or emulator API address without coordinating changes to the implementation and Epic registration.
-
-### Epic account inactive
-
-Ask the developer to verify an available synthetic sandbox account.
-
-Do not reset a shared test account’s password.
-
-### Authorization succeeds but the app does not reopen
-
-Look for these backend messages:
-
-```text
-Epic sandbox authorization completed.
-Epic mobile snapshot prepared: 1 medication order(s).
-Mobile authorization return page sent.
-```
-
-The medication count may differ.
-
-The current implementation shows a Return to EZ Healthcare button rather than relying only on an automatic browser redirect.
-
-Tap that button within one minute.
-
-To test the installed app’s link handler:
-
-```sh
-adb shell am start -W -a android.intent.action.VIEW -d "ezhealthcare://medications"
-```
-
-This command tests navigation only. It does not authorize Epic access.
-
-If Android brings the existing app task forward and reports `Status: ok`, the link handler is working.
-
-If it cannot resolve the link, verify that the installed development build contains the configured `ezhealthcare` scheme.
-
-Do not guess a package name when testing links. Omitting the package lets Android resolve the registered scheme.
-
-### MyChart shows “Thanks for using MyChart” instead of the return page
-
-Check that the updated backend is actually running and not blocked by an older process on port 3001.
-
-Check for `Mobile authorization return page sent.` in the active backend terminal.
-
-If the issue persists, provide the final browser URL without its query string and the recent backend messages.
-
-### Mobile sign-in expired or already started
-
-Return to the app and select Connect to Epic to create a fresh attempt.
-
-Do not refresh an old sign-in URL.
-
-### Connection result expired
-
-The app must collect the result within one minute after the backend prepares the mobile handoff.
-
-Start a fresh sign-in if that window expires.
-
-### Unauthorized / 401 or snapshot expired
-
-Select Disconnect if a snapshot is still displayed, then Connect to Epic again.
-
-Backend restarts clear temporary sessions and mobile tokens.
-
-### TypeScript errors
+## 12. Validation Checklist
 
 From the project root:
 
@@ -1120,117 +527,43 @@ From the project root:
 npm run typecheck
 ```
 
-This checks the entire frontend project, not only Medications.
+- [ ] Backend health reports database connected.
+- [ ] Welcome opens and both mode options are selectable.
+- [ ] All three sample screens load without Epic sign-in.
+- [ ] Mode switching removes the previous source's displayed records.
+- [ ] API Mode opens the existing Epic authorization flow.
+- [ ] Medication source, patient, dates, and statuses are displayed correctly.
+- [ ] API errors do not display sample records as if retrieved from Epic.
+- [ ] Existing accessibility and navigation behavior is rehearsed on the emulator.
 
-If the terminal returns to its prompt without errors after `tsc --noEmit`, the check passed.
+The mode update passed frontend TypeScript checks and sample-route tests with a mocked database. Sample Data Mode was also confirmed working in local development.
 
-Passing a typecheck does not prove that Epic authorization works; test that flow separately.
+These checks do not constitute complete integration, accessibility, or production-readiness testing.
 
-### Expo reports a stale or unresolved module
+## Key Files
 
-Confirm the file exists and the import path is correct.
+| Path | Purpose |
+| --- | --- |
+| `src/app/index.tsx`, `src/app/welcome.tsx` | Welcome routes |
+| `src/screens/WelcomeScreen.tsx` | Mode-selection interface |
+| `src/services/dataMode.ts` | Selected mode, session reset, and change notifications |
+| `src/app/home.tsx`, `src/screens/HomeScreen.tsx` | Shared Home screen |
+| `src/screens/MedicationsScreen.tsx` | Shared medications screen and Epic mobile connection |
+| `src/app/my-providers.tsx`, `src/app/my-health.tsx` | Shared provider/vital screens |
+| `backend/src/server.ts` | Express startup and route registration |
+| `backend/src/sampleData.ts` | Fictional PostgreSQL-backed endpoints |
+| `backend/src/epic.ts`, `backend/src/nativeAuth.ts` | Epic authorization and mobile handoff |
+| `backend/src/mobileDemo.ts`, `backend/src/vitals.ts` | Epic-backed record handling |
+| `database/seed-sample-mode.sql` | Fictional fixtures for Sample Data Mode |
 
-For the medication route:
+## Remaining Work
 
-```tsx
-export { default } from '../screens/MedicationsScreen';
-```
+- Build Messages, Test Results, Insurance, and Share.
+- Integrate team appointment and medication-reminder work.
+- Continue voice navigation development.
+- Implement EZ Healthcare account authentication.
+- Continue accessibility, device, and integration testing.
 
-If the source is correct, stop Expo and clear the cache:
+For new record features, use shared screens with separate sample and API sources.
 
-```sh
-npx expo start --dev-client -c
-```
-
-Clearing the cache does not restore missing files.
-
-### FHIR OperationOutcome warning
-
-A medication response may include a warning explaining that the authorized data might not represent the entire medical record.
-
-Do not count an OperationOutcome entry as a medication.
-
-Warnings do not automatically mean that returned medication orders failed, but actual error/fatal outcomes require investigation.
-
-### Sharing errors with the developer
-
-Include:
-
-- Operating system.
-- Step reached.
-- Exact terminal error.
-- Whether the computer’s health endpoint works.
-- Whether the emulator’s localhost health endpoint works.
-- Whether Epic authorization and snapshot messages appeared.
-
-Remove passwords, tokens, cookies, and authorization codes.
-
-For browser URLs, remove the query string after `?` before sharing.
-
-## 14. Development and Git Guidelines
-
-### Files to commit
-
-Commit the intended source changes and matching dependency files, including:
-
-- Updated backend authorization and handoff code.
-- Updated medication connection logic.
-- TypeScript compatibility fixes.
-- `app.json` changes.
-- Root and backend package files when changed.
-- README updates.
-
-Review generated native project changes according to the team’s repository policy. Do not change whether native folders are tracked without coordinating with the team.
-
-### Files not to commit
-
-Do not commit:
-
-- `backend/.env`
-- `android/local.properties`
-- `node_modules`
-- Local build output
-- Access tokens, session cookies, or database passwords
-
-Use `.env.example` with placeholders for documenting configuration.
-
-### Before committing
-
-From the project root:
-
-```sh
-git status
-git diff --stat
-npm run typecheck
-```
-
-Review the actual diff before staging.
-
-A frontend typecheck does not check all backend behavior. Also start the backend and test the Epic-to-mobile flow.
-
-### Important limitations
-
-- The application remains a partial prototype.
-- Login and Sign Up are not yet a complete application account system.
-- Several feature buttons remain placeholders.
-- The Epic snapshot is temporary and limited to the implemented requests.
-- Medication retrieval currently uses the first response page.
-- Local HTTP, in-memory sessions, and emulator port forwarding are development arrangements.
-- Successful sandbox integration does not establish production security, privacy compliance, or validated accessibility.
-
-## 15. Reference Links
-
-- Node.js: https://nodejs.org/en/download
-- IntelliJ IDEA: https://www.jetbrains.com/idea/download/
-- Postgres.app: https://postgresapp.com/documentation/install.html
-- PostgreSQL Windows installers: https://www.postgresql.org/download/windows/
-- Android Studio: https://developer.android.com/studio
-- Temurin JDK 17: https://adoptium.net/temurin/releases/?version=17
-- Expo development builds: https://docs.expo.dev/develop/development-builds/introduction/
-- Expo authentication: https://docs.expo.dev/guides/authentication/
-- Expo WebBrowser: https://docs.expo.dev/versions/v57.0.0/sdk/webbrowser/
-- Android emulator setup: https://docs.expo.dev/workflow/android-studio-emulator/
-- Android Debug Bridge: https://developer.android.com/tools/adb
-- Epic on FHIR: https://fhir.epic.com/
-
-Keep this guide aligned with the repository’s current code and the team’s Epic sandbox registration.
+Verify supported Epic endpoints and permissions before promising live integration. Unsupported features must be labeled honestly rather than simulated in API Mode.
