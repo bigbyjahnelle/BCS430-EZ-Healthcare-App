@@ -10,7 +10,7 @@ export function createSampleDataRouter(pool: Pool) {
     });
     router.get('/:section', async (req, res) => {
         const section = req.params.section;
-        if (!['medications', 'providers', 'vitals'].includes(section)) {
+        if (!['medications', 'providers', 'vitals', 'test-results'].includes(section)) {
             res.status(404).json({ error: 'Unknown sample section.' });
             return;
         }

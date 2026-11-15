@@ -127,6 +127,7 @@ epicRouter.get("/login", async (req, res) => {
             "patient/Patient.read",
             "patient/MedicationRequest.read",
             "patient/Medication.read",
+            "patient/Observation.read",
             ...(process.env.EPIC_PRACTITIONER_SCOPE?.trim() ? [process.env.EPIC_PRACTITIONER_SCOPE.trim()] : []),
         ].join(" "),
         state,

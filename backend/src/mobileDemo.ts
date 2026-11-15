@@ -1,6 +1,7 @@
 import express from "express";
 import { randomBytes } from "node:crypto";
 import { loadVitals } from "./vitals.js";
+import { LabRequestError, loadLabResults } from "./labs.js";
 
 export const mobileDemoRouter = express.Router();
 
@@ -358,6 +359,24 @@ mobileDemoRouter.get("/providers", (req, res) => {
     source: snapshot.source,
     fetchedAt: snapshot.fetchedAt,
   });
+});
+
+mobileDemoRouter.get("/test-results", async (req, res) => {
+  const snapshot = findSnapshot(req.get("Authorization"));
+  const connection = snapshot ? vitalsConnections.get(snapshot) : undefined;
+  if (!snapshot || !connection ||
+      (connection.expiresAt !== undefined && Date.now() >= connection.expiresAt)) {
+    res.status(401).json({ error: "Your Epic connection expired. Connect again in Medications." });
+    return;
+  }
+  try {
+    const data = await loadLabResults(fhirBase, snapshot.patient.id, connection.accessToken);
+    res.json({ ...data, source: 'Epic sandbox', patient: snapshot.patient, fetchedAt: new Date().toISOString() });
+  } catch (error) {
+    res.status(error instanceof LabRequestError ? error.httpStatus : 502).json({
+      error: error instanceof LabRequestError ? error.message : 'Lab results could not be retrieved.',
+    });
+  }
 });
 
 mobileDemoRouter.get("/vitals", async (req, res) => {
