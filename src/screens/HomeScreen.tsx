@@ -11,21 +11,18 @@ import {
   Text,
   View,
 } from 'react-native';
-import type {
-  NativeScrollEvent,
-  NativeSyntheticEvent,
-} from 'react-native';
+import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 import { modeLabel, useDataMode } from '../services/dataMode';
+import { logout } from '../services/logout';
 
 const BLUE = '#17618E';
 const GREEN = '#008060';
-
 const CORNER_CIRCLE = 72;
 const LOGO_SIZE = 120;
 const TOP_BAR_HEIGHT = 124;
 const BOTTOM_BAR_HEIGHT = 112;
-
 const STICKY_TOP_BUTTONS = true;
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
@@ -72,12 +69,7 @@ function CornerButton({
           onPress={onPress}
       >
         <View style={styles.cornerCircle}>
-          <Ionicons
-              name={icon}
-              size={34}
-              color={BLUE}
-              accessible={false}
-          />
+          <Ionicons name={icon} size={34} color={BLUE} accessible={false} />
         </View>
         <Text style={styles.cornerLabel}>{label}</Text>
       </Pressable>
@@ -103,16 +95,12 @@ export default function HomeScreen() {
       viewH - topSpace - BOTTOM_BAR_HEIGHT - insets.bottom
   );
 
-  const handleScroll = (
-      e: NativeSyntheticEvent<NativeScrollEvent>
-  ) => {
-    const { contentOffset, contentSize, layoutMeasurement } =
-        e.nativeEvent;
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
 
     setScrolled(contentOffset.y > 20);
     setAtEnd(
-        contentOffset.y + layoutMeasurement.height >=
-        contentSize.height - 40
+        contentOffset.y + layoutMeasurement.height >= contentSize.height - 40
     );
   };
 
@@ -165,7 +153,7 @@ export default function HomeScreen() {
                 source={require('../../assets/images/ez-logo.png')}
                 style={styles.logo}
                 resizeMode="contain"
-                accessible={true}
+                accessible
                 accessibilityLabel="EZ Healthcare"
             />
         )}
@@ -173,7 +161,13 @@ export default function HomeScreen() {
         <CornerButton
             label="Log Out"
             icon="log-out-outline"
-            onPress={() => router.push('/login')}
+            onPress={async () => {
+              try {
+                await logout();
+              } catch {
+                Alert.alert('Could not log out', 'Please try again.');
+              }
+            }}
         />
       </View>
   );
@@ -191,19 +185,17 @@ export default function HomeScreen() {
             ]}
             scrollEventThrottle={16}
             onScroll={handleScroll}
-            onLayout={(e) => {
-              viewHeight.current = e.nativeEvent.layout.height;
-              setViewH(e.nativeEvent.layout.height);
+            onLayout={(event) => {
+              viewHeight.current = event.nativeEvent.layout.height;
+              setViewH(event.nativeEvent.layout.height);
             }}
-            onContentSizeChange={(_w, h) => {
+            onContentSizeChange={(_width, height) => {
               if (viewHeight.current > 0) {
-                setAtEnd(h <= viewHeight.current + 40);
+                setAtEnd(height <= viewHeight.current + 40);
               }
             }}
         >
-          <View
-              style={[styles.firstScreen, { minHeight: firstScreenHeight }]}
-          >
+          <View style={[styles.firstScreen, { minHeight: firstScreenHeight }]}>
             {!STICKY_TOP_BUTTONS ? topRow : null}
 
             <Pressable
@@ -235,7 +227,7 @@ export default function HomeScreen() {
                 onPress={() => router.push('/welcome')}
                 style={{ minHeight: 48, justifyContent: 'center', paddingHorizontal: 12 }}
             >
-              <Text style={{ color: '#17618E', fontSize: 18, fontWeight: '700' }}>
+              <Text style={{ color: BLUE, fontSize: 18, fontWeight: '700' }}>
                 {modeLabel(mode)} · Change
               </Text>
             </Pressable>
@@ -268,9 +260,7 @@ export default function HomeScreen() {
             </View>
         ) : null}
 
-        <View
-            style={[styles.bottomBar, { paddingBottom: insets.bottom }]}
-        >
+        <View style={[styles.bottomBar, { paddingBottom: insets.bottom }]}>
           <View style={styles.bottomRow}>
             <CornerButton
                 label="Settings"
@@ -285,9 +275,7 @@ export default function HomeScreen() {
                     style={styles.scrollHint}
                     accessibilityRole="button"
                     accessibilityLabel="Keep scrolling. Tap to scroll down."
-                    onPress={() =>
-                        scrollRef.current?.scrollToEnd({ animated: true })
-                    }
+                    onPress={() => scrollRef.current?.scrollToEnd({ animated: true })}
                 >
                   <View style={styles.chevrons}>
                     <Ionicons
@@ -329,21 +317,15 @@ const shadow = {
 } as const;
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: '#F7F8F3',
-  },
+  screen: { flex: 1, backgroundColor: '#F7F8F3' },
   content: {
     width: '100%',
     maxWidth: 540,
     alignSelf: 'center',
-    paddingLeft: 20,
-    paddingRight: 20,
+    paddingHorizontal: 20,
     gap: 18,
   },
-  firstScreen: {
-    gap: 18,
-  },
+  firstScreen: { gap: 18 },
   topBar: {
     position: 'absolute',
     top: 0,
@@ -381,16 +363,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  logo: {
-    width: LOGO_SIZE,
-    height: LOGO_SIZE,
-  },
-  cornerButton: {
-    minWidth: 80,
-    alignItems: 'center',
-    gap: 6,
-    padding: 4,
-  },
+  logo: { width: LOGO_SIZE, height: LOGO_SIZE },
+  cornerButton: { minWidth: 80, alignItems: 'center', gap: 6, padding: 4 },
   cornerCircle: {
     width: CORNER_CIRCLE,
     height: CORNER_CIRCLE,
@@ -414,13 +388,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 2,
   },
-  chevrons: {
-    height: 40,
-    alignItems: 'center',
-  },
-  secondChevron: {
-    marginTop: -16,
-  },
+  chevrons: { height: 40, alignItems: 'center' },
+  secondChevron: { marginTop: -16 },
   scrollText: {
     fontSize: 16,
     fontWeight: '600',
@@ -448,9 +417,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: BLUE,
   },
-  greenText: {
-    color: GREEN,
-  },
+  greenText: { color: GREEN },
   voiceCircle: {
     width: 72,
     height: 72,
@@ -459,20 +426,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#0072AA',
   },
-  speakText: {
-    fontSize: 20,
-    textAlign: 'center',
-    color: '#0B2236',
-  },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 14,
-  },
-  gridItem: {
-    flexBasis: '47%',
-    flexGrow: 1,
-  },
+  speakText: { fontSize: 20, textAlign: 'center', color: '#0B2236' },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
+  gridItem: { flexBasis: '47%', flexGrow: 1 },
   gridCard: {
     flex: 1,
     minHeight: 150,
@@ -502,21 +458,13 @@ const styles = StyleSheet.create({
     color: '#0B2236',
     textAlign: 'center',
   },
-  sectionHeader: {
-    gap: 8,
-    marginTop: 14,
-  },
+  sectionHeader: { gap: 8, marginTop: 14 },
   sectionDash: {
     width: 44,
     height: 5,
     borderRadius: 3,
     backgroundColor: GREEN,
   },
-  sectionTitle: {
-    fontSize: 30,
-    fontWeight: '800',
-  },
-  sectionBlue: {
-    color: BLUE,
-  },
+  sectionTitle: { fontSize: 30, fontWeight: '800' },
+  sectionBlue: { color: BLUE },
 });

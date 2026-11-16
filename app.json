@@ -23,7 +23,8 @@
         {
           "color": "#17618E"
         }
-      ]
+      ],
+      "expo-splash-screen"
     ],
     "android": {
       "package": "com.anonymous.ezhealthcare",

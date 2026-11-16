@@ -1,6 +1,6 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { ComponentProps } from 'react';
 import {
   Alert,
@@ -17,26 +17,19 @@ import {
 import type { TextInputProps } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-function showMessage(feature: string) {
-  Alert.alert(feature, 'This feature is not connected yet.');
-}
+import { supabase } from '../services/supabase';
 
-type FieldProps = {
+type FieldProps = TextInputProps & {
   label: string;
   icon: ComponentProps<typeof Ionicons>['name'];
-} & TextInputProps;
+};
 
 function Field({ label, icon, ...inputProps }: FieldProps) {
   const [focused, setFocused] = useState(false);
 
   return (
       <View style={[styles.field, focused && styles.fieldFocused]}>
-        <Ionicons
-            name={icon}
-            size={20}
-            color="#17618E"
-            accessible={false}
-        />
+        <Ionicons name={icon} size={20} color="#17618E" accessible={false} />
         <TextInput
             style={styles.input}
             placeholder={label}
@@ -52,8 +45,52 @@ function Field({ label, icon, ...inputProps }: FieldProps) {
 
 export default function LoginScreen() {
   const router = useRouter();
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [signingIn, setSigningIn] = useState(false);
+  const submitting = useRef(false);
+
+  async function signIn() {
+    if (submitting.current) return;
+
+    const trimmedEmail = email.trim();
+
+    if (!trimmedEmail || !password) {
+      Alert.alert('Missing information', 'Enter your email and password.');
+      return;
+    }
+
+    if (!supabase) {
+      Alert.alert(
+          'Supabase is not configured',
+          'Check the Supabase URL and publishable key in your project’s .env file, then restart Expo.'
+      );
+      return;
+    }
+
+    submitting.current = true;
+    setSigningIn(true);
+
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: trimmedEmail,
+        password,
+      });
+
+      if (error || !data.session) {
+        Alert.alert('Could not sign in', error?.message ?? 'Please try again.');
+        return;
+      }
+
+      setPassword('');
+      router.replace('/welcome');
+    } catch {
+      Alert.alert('Could not sign in', 'Check your internet connection and try again.');
+    } finally {
+      submitting.current = false;
+      setSigningIn(false);
+    }
+  }
 
   return (
       <SafeAreaView style={styles.screen}>
@@ -72,37 +109,50 @@ export default function LoginScreen() {
                   source={require('../../assets/images/ez-logo.png')}
                   style={styles.logo}
                   resizeMode="contain"
-                  accessible={true}
+                  accessible
                   accessibilityLabel="EZ Healthcare"
               />
             </View>
 
             <View style={styles.form}>
               <Field
-                  label="USERNAME"
-                  icon="person-outline"
+                  label="EMAIL"
+                  icon="mail-outline"
                   autoCapitalize="none"
-                  value={username}
-                  onChangeText={setUsername}
+                  autoCorrect={false}
+                  keyboardType="email-address"
+                  autoComplete="email"
+                  value={email}
+                  onChangeText={setEmail}
+                  editable={!signingIn}
               />
+
               <Field
                   label="PASSWORD"
                   icon="lock-closed-outline"
                   secureTextEntry
+                  autoComplete="current-password"
                   value={password}
                   onChangeText={setPassword}
+                  editable={!signingIn}
+                  returnKeyType="go"
+                  onSubmitEditing={() => void signIn()}
               />
 
               <Pressable
                   style={({ pressed }) => [
                     styles.primaryButton,
-                    pressed && { opacity: 0.85 },
+                    (pressed || signingIn) && { opacity: 0.85 },
                   ]}
                   accessibilityRole="button"
-                  accessibilityLabel="LOGIN"
-                  onPress={() => showMessage('Login')}
+                  accessibilityLabel={signingIn ? 'Signing in' : 'Login'}
+                  accessibilityState={{ disabled: signingIn, busy: signingIn }}
+                  disabled={signingIn}
+                  onPress={() => void signIn()}
               >
-                <Text style={styles.primaryButtonText}>LOGIN</Text>
+                <Text style={styles.primaryButtonText}>
+                  {signingIn ? 'SIGNING IN…' : 'LOGIN'}
+                </Text>
               </Pressable>
             </View>
 
@@ -110,7 +160,10 @@ export default function LoginScreen() {
               <Pressable
                   style={styles.linkButton}
                   accessibilityRole="button"
-                  onPress={() => showMessage('Forgot Password')}
+                  disabled={signingIn}
+                  onPress={() =>
+                      Alert.alert('Forgot Password', 'Password recovery is not connected yet.')
+                  }
               >
                 <Text style={styles.linkText}>Forgot password?</Text>
               </Pressable>
@@ -118,6 +171,7 @@ export default function LoginScreen() {
               <Pressable
                   style={styles.linkButton}
                   accessibilityRole="button"
+                  disabled={signingIn}
                   onPress={() => router.push('/signup')}
               >
                 <Text style={styles.secondaryLinkText}>
@@ -133,10 +187,7 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: '#F7F8F3',
-  },
+  screen: { flex: 1, backgroundColor: '#F7F8F3' },
   content: {
     flexGrow: 1,
     width: '100%',
@@ -147,24 +198,16 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
     gap: 28,
   },
-  header: {
-    alignItems: 'center',
-    gap: 12,
-  },
+  header: { alignItems: 'center', gap: 12 },
   title: {
     fontSize: 34,
+    fontWeight: '300',
     letterSpacing: 1,
     color: '#17618E',
     textAlign: 'center',
-    fontWeight: 300,
   },
-  logo: {
-    width: 210,
-    height: 210,
-  },
-  form: {
-    gap: 14,
-  },
+  logo: { width: 210, height: 210 },
+  form: { gap: 14 },
   field: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -176,10 +219,7 @@ const styles = StyleSheet.create({
     borderColor: '#17618E',
     backgroundColor: '#F7F8F3',
   },
-  fieldFocused: {
-    borderWidth: 2,
-    backgroundColor: '#FFFFFF',
-  },
+  fieldFocused: { borderWidth: 2, backgroundColor: '#FFFFFF' },
   input: {
     flex: 1,
     fontSize: 15,
@@ -206,28 +246,14 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5,
     color: '#FFFFFF',
   },
-  links: {
-    alignItems: 'center',
-    gap: 2,
-  },
+  links: { alignItems: 'center', gap: 2 },
   linkButton: {
     minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 12,
   },
-  linkText: {
-    fontSize: 15,
-    color: '#17618E',
-    textAlign: 'center',
-  },
-  secondaryLinkText: {
-    fontSize: 14,
-    color: '#44525A',
-    textAlign: 'center',
-  },
-  secondaryLinkAccent: {
-    fontWeight: '700',
-    color: '#17618E',
-  },
+  linkText: { fontSize: 15, color: '#17618E', textAlign: 'center' },
+  secondaryLinkText: { fontSize: 14, color: '#44525A', textAlign: 'center' },
+  secondaryLinkAccent: { fontWeight: '700', color: '#17618E' },
 });
