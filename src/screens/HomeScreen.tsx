@@ -33,7 +33,7 @@ type IconName = ComponentProps<typeof Ionicons>['name'];
 type Service = {
   title: string;
   icon: IconName;
-  route?: '/medications' | '/my-providers' | '/my-health' | '/test-results';
+  route?: '/medications' | '/my-providers' | '/my-health' | '/test-results' | '/reminders';
 };
 
 const MAIN_SERVICES: Service[] = [
@@ -48,6 +48,7 @@ const MORE_SERVICES: Service[] = [
   { title: 'Insurance', icon: 'shield-checkmark-outline' },
   { title: 'Share', icon: 'share-social-outline' },
   { title: 'My Providers', icon: 'location-outline', route: '/my-providers' },
+  { title: 'Reminders', icon: 'alarm-outline', route: '/reminders' },
 ];
 
 function showMessage(feature: string) {
@@ -154,7 +155,7 @@ export default function HomeScreen() {
         <CornerButton
             label="Profile"
             icon="person-outline"
-            onPress={() => showMessage('Profile')}
+            onPress={() => router.push('/my-health')}
         />
 
         {scrolled && STICKY_TOP_BUTTONS ? (

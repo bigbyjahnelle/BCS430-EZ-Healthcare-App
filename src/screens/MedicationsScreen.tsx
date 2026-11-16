@@ -397,6 +397,15 @@ export default function MedicationsScreen() {
             Medication Records
           </Text>
 
+          <Pressable
+              style={styles.secondaryButton}
+              accessibilityRole="button"
+              onPress={() => router.push('/reminders')}
+          >
+            <Ionicons name="alarm-outline" size={24} color="#17618E" accessible={false} />
+            <Text style={styles.secondaryButtonText}>My Reminders & Today’s Doses</Text>
+          </Pressable>
+
           <View style={styles.notice}>
             <Text style={styles.noticeText}>
               {modeLabel(mode)} — test data only.
@@ -533,6 +542,24 @@ export default function MedicationsScreen() {
                       <Text style={styles.body}>
                         {medication.authoredOn}
                       </Text>
+
+                      {medication.status !== 'completed' && (
+                          <Pressable
+                              style={styles.secondaryButton}
+                              accessibilityRole="button"
+                              accessibilityLabel={`Set a reminder for ${medication.name}`}
+                              onPress={() => router.push({
+                                pathname: '/reminders',
+                                params: {
+                                  medicationName: medication.name,
+                                  dosage: medication.dosage === 'Not provided' ? '' : medication.dosage,
+                                },
+                              })}
+                          >
+                            <Ionicons name="alarm-outline" size={24} color="#17618E" accessible={false} />
+                            <Text style={styles.secondaryButtonText}>Set Reminder</Text>
+                          </Pressable>
+                      )}
                     </View>
                 ))}
 
@@ -660,6 +687,24 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 16,
     backgroundColor: '#17618E',
+  },
+  secondaryButton: {
+    minHeight: 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: '#17618E',
+    backgroundColor: '#FFFFFF',
+  },
+  secondaryButtonText: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#17618E',
+    textAlign: 'center',
   },
   disabledButton: {
     opacity: 0.5,
