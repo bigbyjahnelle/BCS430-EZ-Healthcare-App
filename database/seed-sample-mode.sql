@@ -2,9 +2,14 @@ BEGIN;
 
 -- Separate fictional fixtures; existing user, medication and Epic data are untouched.
 CREATE TABLE IF NOT EXISTS ez_sample_payloads (
-                                                  section TEXT PRIMARY KEY CHECK (section IN ('medications', 'providers', 'vitals')),
+                                                  section TEXT PRIMARY KEY CHECK (section IN ('medications', 'providers', 'vitals', 'profile')),
     payload JSONB NOT NULL
     );
+
+-- Allow the 'profile' section on databases created by the earlier version of this script - RD
+ALTER TABLE ez_sample_payloads DROP CONSTRAINT IF EXISTS ez_sample_payloads_section_check;
+ALTER TABLE ez_sample_payloads ADD CONSTRAINT ez_sample_payloads_section_check
+    CHECK (section IN ('medications', 'providers', 'vitals', 'profile'));
 
 INSERT INTO ez_sample_payloads (section, payload) VALUES
                                                       ('medications', $json${
@@ -29,6 +34,19 @@ INSERT INTO ez_sample_payloads (section, payload) VALUES
                                                           {"id":"sample-vital-3","name":"Temperature","value":"36.8 °C","recordedAt":"2026-11-01T14:00:00Z"},
                                                           {"id":"sample-vital-4","name":"Oxygen saturation","value":"98%","recordedAt":"2026-11-01T14:00:00Z"}
   ]
+}$json$::jsonb),
+                                                      -- Profile sample inserted along with the existing sample data - RD
+                                                      ('profile', $json${
+  "status":"ok",
+                                                       "profile":{
+    "name":"Taylor Sample (fictional)",
+                                                       "birthDate":"1948-03-14",
+                                                       "sex":"Female",
+                                                       "phone":"555-0100",
+                                                       "email":"taylor.sample@example.test",
+                                                       "address":"100 Example Street, Sampletown, NY 10000",
+                                                       "language":"English"
+  }
 }$json$::jsonb)
     ON CONFLICT (section) DO UPDATE SET payload = EXCLUDED.payload;
 

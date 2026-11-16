@@ -2,7 +2,7 @@ BEGIN;
 -- Requires the shared-mode setup. Preserve all existing sample payloads.
 ALTER TABLE ez_sample_payloads DROP CONSTRAINT IF EXISTS ez_sample_payloads_section_check;
 ALTER TABLE ez_sample_payloads ADD CONSTRAINT ez_sample_payloads_section_check
-    CHECK (section IN ('medications', 'providers', 'vitals', 'test-results'));
+    CHECK (section IN ('medications', 'providers', 'vitals', 'profile', 'test-results'));
 INSERT INTO ez_sample_payloads (section, payload) VALUES
     ('test-results', $json${
   "status":"ok",

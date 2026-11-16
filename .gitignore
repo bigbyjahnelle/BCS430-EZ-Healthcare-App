@@ -5,9 +5,9 @@ web-build/
 coverage/
 *.tsbuildinfo
 expo-env.d.ts
-.env
-.env.*
-!.env.example
+backend/.env
+backend/.env
+!backend/.env
 *.log
 .DS_Store
 .idea/

@@ -17,10 +17,20 @@
       "expo-router",
       "expo-status-bar",
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-notifications",
+        {
+          "color": "#17618E"
+        }
+      ]
     ],
     "android": {
-      "package": "com.anonymous.ezhealthcare"
+      "package": "com.anonymous.ezhealthcare",
+      "permissions": [
+        "android.permission.SCHEDULE_EXACT_ALARM",
+        "android.permission.USE_EXACT_ALARM"
+      ]
     }
   }
 }

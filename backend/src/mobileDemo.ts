@@ -21,11 +21,44 @@ type Provider = {
   role: "Prescribing provider";
 };
 
+type PatientProfile = {
+  name: string;
+  birthDate: string | null;
+  sex: string | null;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+  language: string | null;
+};
+
+type PatientResource = {
+  resourceType?: string;
+  id?: string;
+  name?: HumanName[];
+  birthDate?: string;
+  gender?: string;
+  telecom?: { system?: string; value?: string; use?: string; period?: { end?: string } }[];
+  address?: {
+    use?: string;
+    text?: string;
+    line?: string[];
+    city?: string;
+    state?: string;
+    postalCode?: string;
+    period?: { end?: string };
+  }[];
+  communication?: {
+    preferred?: boolean;
+    language?: { text?: string; coding?: { display?: string; code?: string }[] };
+  }[];
+};
+
 type Snapshot = {
   source: string;
   fetchedAt: string;
   expiresAt: number;
   patient: { id: string; name: string };
+  profile: PatientProfile;
   medications: Medication[];
   providers: Provider[];
   warnings: string[];
@@ -100,6 +133,61 @@ function formatName(names?: HumanName[]): string | null {
       [...(name?.given ?? []), name?.family].filter(Boolean).join(" ") ||
       null
   );
+}
+
+function isCurrent(period?: { end?: string }) {
+  return !period?.end || Date.parse(period.end) > Date.now();
+}
+
+function pickContact(
+    patient: PatientResource,
+    system: "phone" | "email",
+    preferredUses: string[]
+): string | null {
+  const options = (patient.telecom ?? []).filter(
+      (item) => item.system === system && item.value?.trim() && isCurrent(item.period)
+  );
+  for (const use of preferredUses) {
+    const match = options.find((item) => item.use === use);
+    if (match) return match.value!.trim();
+  }
+  return options[0]?.value?.trim() || null;
+}
+
+function formatAddress(patient: PatientResource): string | null {
+  const options = (patient.address ?? []).filter((item) => isCurrent(item.period));
+  const address = options.find((item) => item.use === "home") ?? options[0];
+  if (!address) return null;
+  if (address.text?.trim()) return address.text.trim();
+  const cityLine = [
+    [address.city, address.state].filter(Boolean).join(", "),
+    address.postalCode,
+  ].filter(Boolean).join(" ");
+  return [...(address.line ?? []), cityLine].filter(Boolean).join(", ") || null;
+}
+
+function formatSex(gender?: string): string | null {
+  if (!gender) return null;
+  return gender.charAt(0).toUpperCase() + gender.slice(1);
+}
+
+function formatLanguage(patient: PatientResource): string | null {
+  const options = patient.communication ?? [];
+  const choice = options.find((item) => item.preferred) ?? options[0];
+  const language = choice?.language;
+  return language?.text || language?.coding?.find((code) => code.display)?.display || null;
+}
+
+function normalizeProfile(patient: PatientResource): PatientProfile {
+  return {
+    name: formatName(patient.name) || "Sandbox patient",
+    birthDate: /^\d{4}(-\d{2}(-\d{2})?)?$/.test(patient.birthDate ?? "") ? patient.birthDate! : null,
+    sex: formatSex(patient.gender),
+    phone: pickContact(patient, "phone", ["mobile", "home"]),
+    email: pickContact(patient, "email", ["home"]),
+    address: formatAddress(patient),
+    language: formatLanguage(patient),
+  };
 }
 
 function normalizeMedication(resource: MedicationResource): Medication {
@@ -211,7 +299,7 @@ export async function prepareMobileDemo(connection: {
     );
   }
 
-  const patient = await patientResponse.json();
+  const patient: PatientResource = await patientResponse.json();
   const bundle = await medicationResponse.json();
 
   if (
@@ -260,14 +348,17 @@ export async function prepareMobileDemo(connection: {
 
   const providers = await loadProviders(medicationResources, headers);
 
+  const profile = normalizeProfile(patient);
+
   const snapshot: Snapshot = {
     source: "Epic sandbox",
     fetchedAt: new Date().toISOString(),
     expiresAt: Date.now() + 30 * 60 * 1000,
     patient: {
       id: connection.patientId,
-      name: formatName(patient.name) || "Sandbox patient",
+      name: profile.name,
     },
+    profile,
     medications: medicationResources.map(normalizeMedication),
     providers,
     warnings: [...new Set(warnings)],
@@ -356,6 +447,24 @@ mobileDemoRouter.get("/providers", (req, res) => {
 
   res.json({
     providers: snapshot.providers,
+    source: snapshot.source,
+    fetchedAt: snapshot.fetchedAt,
+  });
+});
+
+mobileDemoRouter.get("/profile", (req, res) => {
+  const snapshot = findSnapshot(req.get("Authorization"));
+
+  if (!snapshot) {
+    res.status(401).json({
+      error: "Your Epic connection expired. Connect again in Medications.",
+    });
+    return;
+  }
+
+  res.json({
+    status: "ok",
+    profile: snapshot.profile,
     source: snapshot.source,
     fetchedAt: snapshot.fetchedAt,
   });
