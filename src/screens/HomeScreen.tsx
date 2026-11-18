@@ -35,8 +35,7 @@ type Service = {
 
 const MAIN_SERVICES: Service[] = [
   { title: 'Medications', icon: 'medkit-outline', route: '/medications' },
-  { title: 'Appointments', icon: 'calendar-outline' },
-  { title: 'Messages', icon: 'mail-outline' },
+  { title: 'Appointments', icon: 'calendar-outline', route: '/appointments' },  { title: 'Messages', icon: 'mail-outline' },
   { title: 'Test Results', icon: 'document-text-outline', route: '/test-results' },
 ];
 
