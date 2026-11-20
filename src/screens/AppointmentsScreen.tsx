@@ -1,13 +1,21 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
 import { useRouter } from 'expo-router';
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import type { ComponentProps } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import PageBackground from '../components/PageBackground';
+import {
+  BLUE,
+  BORDER,
+  Card,
+  FONT,
+  GEAR_CLEARANCE,
+  INK,
+  PrimaryButton,
+  ScreenHeader,
+} from '../components/ScreenParts';
+
+type IconName = ComponentProps<typeof Ionicons>['name'];
 
 type Appointment = {
   key: string;
@@ -49,142 +57,106 @@ const APPOINTMENTS: Appointment[] = [
   },
 ];
 
+function DetailLine({ icon, text }: { icon: IconName; text: string }) {
+  return (
+    <View style={styles.detailLine}>
+      <Ionicons name={icon} size={20} color={BLUE} accessible={false} />
+      <Text style={styles.detailText} numberOfLines={1}>
+        {text}
+      </Text>
+    </View>
+  );
+}
+
 export default function AppointmentsScreen() {
   const router = useRouter();
 
   return (
+    <PageBackground>
       <SafeAreaView style={styles.screen}>
-        <ScrollView contentContainerStyle={styles.content}>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+        >
+          <ScreenHeader title="Appointments" />
 
-          {/* Header */}
-          <View style={styles.topRow}>
-            <Pressable
-                style={styles.backButton}
-                accessibilityRole="button"
-                accessibilityLabel="Back to Home"
-                onPress={() => router.back()}
-            >
-              <Ionicons
-                  name="arrow-back-outline"
-                  size={24}
-                  color="#17618E"
-                  accessible={false}
-              />
-            </Pressable>
+          <PrimaryButton
+            label="+  New Appointment"
+            onPress={() => router.push('/new-appointment')}
+          />
 
-            <Text style={styles.topRowTitle}>Appointments</Text>
-
-            <View style={styles.topRowSpacer} />
+          <View style={styles.sectionChip}>
+            <Text style={styles.sectionLabel} accessibilityRole="header">
+              Upcoming
+            </Text>
           </View>
 
-          {/* New appointment button */}
-          <Pressable
-              style={styles.newButton}
-              accessibilityRole="button"
-              onPress={() => router.push('/new-appointment')}
-          >
-            <Ionicons
-                name="add-outline"
-                size={22}
-                color="#FFFFFF"
-                accessible={false}
-            />
-            <Text style={styles.newButtonText}>New Appointment</Text>
-          </Pressable>
-
-          <Text style={styles.sectionLabel}>Upcoming</Text>
-
-          {/* Appointment list */}
           <View style={styles.list}>
             {APPOINTMENTS.map((appt) => (
-                <Pressable
-                    key={appt.key}
-                    style={styles.card}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${appt.doctor}, ${appt.specialty}, ${appt.date} at ${appt.time}`}
-                    onPress={() => router.push({
-                      pathname: '/appointment-detail',
-                      params: {
-                        doctor: appt.doctor,
-                        specialty: appt.specialty,
-                        date: appt.date,
-                        time: appt.time,
-                        location: appt.location,
-                        reason: appt.reason,
-                      },
-                    })}
-                >
-                  <View style={styles.cardTopRow}>
-                    <View style={styles.cardTopLeft}>
-                      <View style={styles.cardIconCircle}>
-                        <Ionicons
-                            name="calendar-outline"
-                            size={22}
-                            color="#17618E"
-                            accessible={false}
-                        />
-                      </View>
+              <Pressable
+                key={appt.key}
+                accessibilityRole="button"
+                accessibilityLabel={`${appt.doctor}, ${appt.specialty}, ${appt.date} at ${appt.time}`}
+                onPress={() =>
+                  router.push({
+                    pathname: '/appointment-detail',
+                    params: {
+                      doctor: appt.doctor,
+                      specialty: appt.specialty,
+                      date: appt.date,
+                      time: appt.time,
+                      location: appt.location,
+                      reason: appt.reason,
+                    },
+                  })
+                }
+              >
+                <Card>
+                  <View style={styles.cardTop}>
+                    <View style={styles.iconCircle}>
+                      <Ionicons
+                        name="calendar-outline"
+                        size={28}
+                        color={BLUE}
+                        accessible={false}
+                      />
+                    </View>
 
-                      <View>
-                        <Text style={styles.cardDoctor}>{appt.doctor}</Text>
-                        <Text style={styles.cardSpecialty}>{appt.specialty}</Text>
-                      </View>
+                    <View style={styles.cardTitleWrap}>
+                      <Text style={styles.doctor} numberOfLines={1}>
+                        {appt.doctor}
+                      </Text>
+                      <Text style={styles.specialty}>{appt.specialty}</Text>
                     </View>
 
                     <Ionicons
-                        name="chevron-forward-outline"
-                        size={18}
-                        color="#8A97A0"
-                        accessible={false}
+                      name="chevron-forward-outline"
+                      size={26}
+                      color={BLUE}
+                      accessible={false}
                     />
                   </View>
 
-                  <View style={styles.cardDivider} />
+                  <View style={styles.divider} />
 
-                  <View style={styles.cardDetailRow}>
-                    <View style={styles.cardDetailItem}>
-                      <Ionicons
-                          name="calendar-outline"
-                          size={16}
-                          color="#44525A"
-                          accessible={false}
-                      />
-                      <Text style={styles.cardDetailText}>{appt.date.split(',')[0]}</Text>
-                    </View>
-
-                    <View style={styles.cardDetailItem}>
-                      <Ionicons
-                          name="time-outline"
-                          size={16}
-                          color="#44525A"
-                          accessible={false}
-                      />
-                      <Text style={styles.cardDetailText}>{appt.time}</Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.cardDetailItem}>
-                    <Ionicons
-                        name="location-outline"
-                        size={16}
-                        color="#44525A"
-                        accessible={false}
-                    />
-                    <Text style={styles.cardDetailText}>{appt.location}</Text>
-                  </View>
-                </Pressable>
+                  <DetailLine
+                    icon="time-outline"
+                    text={`${appt.date.split(',')[0]} · ${appt.time}`}
+                  />
+                  <DetailLine icon="location-outline" text={appt.location} />
+                </Card>
+              </Pressable>
             ))}
           </View>
-
         </ScrollView>
       </SafeAreaView>
+    </PageBackground>
   );
 }
 
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#F7F8F3',
   },
 
   content: {
@@ -192,127 +164,82 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 540,
     alignSelf: 'center',
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: GEAR_CLEARANCE,
     gap: 16,
   },
 
-  topRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 0,
-  },
-
-  backButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F7F8F3',
-    borderWidth: 1,
-    borderColor: '#DDE4E2',
-  },
-
-  topRowTitle: {
-    flex: 1,
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#0B2236',
-    textAlign: 'center',
-  },
-
-  topRowSpacer: {
-    width: 44,
-  },
-
-  newButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#17618E',
-    borderRadius: 18,
-    paddingVertical: 16,
-  },
-
-  newButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#FFFFFF',
+  // White chip so the heading is readable over the blue background
+  sectionChip: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: BORDER,
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
   },
 
   sectionLabel: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#0B2236',
+    fontFamily: FONT,
+    fontSize: 22,
+    fontWeight: '800',
+    color: INK,
   },
 
   list: {
+    gap: 14,
+  },
+
+  cardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 12,
   },
 
-  card: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#DDE4E2',
-    borderRadius: 20,
-    padding: 16,
-  },
-
-  cardTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-
-  cardTopLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-
-  cardIconCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+  iconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F7F8F3',
-    borderWidth: 1,
-    borderColor: '#DDE4E2',
+    backgroundColor: '#DCEAF5',
   },
 
-  cardDoctor: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#0B2236',
+  cardTitleWrap: {
+    flex: 1,
   },
 
-  cardSpecialty: {
-    fontSize: 13,
+  doctor: {
+    fontFamily: FONT,
+    fontSize: 20,
+    fontWeight: '800',
+    color: INK,
+  },
+
+  specialty: {
+    fontSize: 16,
     color: '#44525A',
+    marginTop: 2,
   },
 
-  cardDivider: {
+  divider: {
     height: 1,
-    backgroundColor: '#DDE4E2',
+    backgroundColor: '#C9D6E2',
     marginVertical: 12,
   },
 
-  cardDetailRow: {
-    flexDirection: 'row',
-    gap: 16,
-    marginBottom: 6,
-  },
-
-  cardDetailItem: {
+  detailLine: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
+    marginTop: 4,
   },
 
-  cardDetailText: {
-    fontSize: 13,
-    color: '#44525A',
+  detailText: {
+    flex: 1,
+    fontSize: 16,
+    color: '#2E3A42',
   },
 });

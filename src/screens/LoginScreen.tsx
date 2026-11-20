@@ -1,4 +1,5 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
 import type { ComponentProps } from 'react';
@@ -8,7 +9,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -17,7 +17,20 @@ import {
 import type { TextInputProps } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import PageBackground from '../components/PageBackground';
 import { supabase } from '../services/supabase';
+
+// Colors (taken from the EZ logo)
+const BLUE = '#0B5394';
+const GREEN = '#00906F';
+const INK = '#0B2236';
+const BORDER = '#A9C2D6';
+const CARD_GRADIENT = ['#FFFFFF', '#F3F7F4'] as const;
+
+// true = serif text like the design picture, false = normal app font
+const USE_SERIF = true;
+const SERIF = Platform.select({ ios: 'Georgia', android: 'serif', default: 'serif' });
+const FONT = USE_SERIF ? SERIF : undefined;
 
 type FieldProps = TextInputProps & {
   label: string;
@@ -28,17 +41,22 @@ function Field({ label, icon, ...inputProps }: FieldProps) {
   const [focused, setFocused] = useState(false);
 
   return (
-      <View style={[styles.field, focused && styles.fieldFocused]}>
-        <Ionicons name={icon} size={20} color="#17618E" accessible={false} />
-        <TextInput
-            style={styles.input}
-            placeholder={label}
-            placeholderTextColor="#5B88A5"
-            accessibilityLabel={label}
-            onFocus={() => setFocused(true)}
-            onBlur={() => setFocused(false)}
-            {...inputProps}
-        />
+      <View style={styles.fieldShadow}>
+        <LinearGradient
+            colors={CARD_GRADIENT}
+            style={[styles.field, focused && styles.fieldFocused]}
+        >
+          <Ionicons name={icon} size={24} color={BLUE} accessible={false} />
+          <TextInput
+              style={styles.input}
+              placeholder={label}
+              placeholderTextColor="#6B8397"
+              accessibilityLabel={label}
+              onFocus={() => setFocused(true)}
+              onBlur={() => setFocused(false)}
+              {...inputProps}
+          />
+        </LinearGradient>
       </View>
   );
 }
@@ -93,69 +111,80 @@ export default function LoginScreen() {
   }
 
   return (
-      <SafeAreaView style={styles.screen}>
-        <KeyboardAvoidingView
-            style={{ flex: 1 }}
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        >
-          <ScrollView
-              contentContainerStyle={styles.content}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
+      <PageBackground offsetY={35}>
+      {/* Android only: soft dark fade at the bottom so the white links are easy to read */}
+        {Platform.OS === 'android' ? (
+            <LinearGradient
+                pointerEvents="none"
+                colors={['rgba(7, 38, 70, 0)', 'rgba(7, 38, 70, 0.9)']}
+                style={styles.scrim}
+            />
+        ) : null}
+
+        <SafeAreaView style={styles.screen}>
+          <KeyboardAvoidingView
+              style={{ flex: 1 }}
+              behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           >
-            <View style={styles.header}>
-              <Text style={styles.title}>Login</Text>
-              <Image
-                  source={require('../../assets/images/ez-logo.png')}
-                  style={styles.logo}
-                  resizeMode="contain"
-                  accessible
-                  accessibilityLabel="EZ Healthcare"
-              />
-            </View>
-
-            <View style={styles.form}>
-              <Field
-                  label="EMAIL"
-                  icon="mail-outline"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  keyboardType="email-address"
-                  autoComplete="email"
-                  value={email}
-                  onChangeText={setEmail}
-                  editable={!signingIn}
-              />
-
-              <Field
-                  label="PASSWORD"
-                  icon="lock-closed-outline"
-                  secureTextEntry
-                  autoComplete="current-password"
-                  value={password}
-                  onChangeText={setPassword}
-                  editable={!signingIn}
-                  returnKeyType="go"
-                  onSubmitEditing={() => void signIn()}
-              />
-
-              <Pressable
-                  style={({ pressed }) => [
-                    styles.primaryButton,
-                    (pressed || signingIn) && { opacity: 0.85 },
-                  ]}
-                  accessibilityRole="button"
-                  accessibilityLabel={signingIn ? 'Signing in' : 'Login'}
-                  accessibilityState={{ disabled: signingIn, busy: signingIn }}
-                  disabled={signingIn}
-                  onPress={() => void signIn()}
-              >
-                <Text style={styles.primaryButtonText}>
-                  {signingIn ? 'SIGNING IN…' : 'LOGIN'}
+            <View style={styles.content}>
+              {/* The logo shrinks to fit, so nothing has to scroll */}
+              <View style={styles.header}>
+                <Text style={styles.title} accessibilityRole="header">
+                  Login
                 </Text>
-              </Pressable>
+                <Image
+                    source={require('../../assets/images/ez-logo.png')}
+                    style={styles.logo}
+                    resizeMode="contain"
+                    accessible
+                    accessibilityLabel="EZ Healthcare"
+                />
+              </View>
+
+              <View style={styles.form}>
+                <Field
+                    label="EMAIL"
+                    icon="mail-outline"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    keyboardType="email-address"
+                    autoComplete="email"
+                    value={email}
+                    onChangeText={setEmail}
+                    editable={!signingIn}
+                />
+
+                <Field
+                    label="PASSWORD"
+                    icon="lock-closed-outline"
+                    secureTextEntry
+                    autoComplete="current-password"
+                    value={password}
+                    onChangeText={setPassword}
+                    editable={!signingIn}
+                    returnKeyType="go"
+                    onSubmitEditing={() => void signIn()}
+                />
+
+                <Pressable
+                    style={({ pressed }) => [
+                      styles.primaryButton,
+                      (pressed || signingIn) && { opacity: 0.85 },
+                    ]}
+                    accessibilityRole="button"
+                    accessibilityLabel={signingIn ? 'Signing in' : 'Login'}
+                    accessibilityState={{ disabled: signingIn, busy: signingIn }}
+                    disabled={signingIn}
+                    onPress={() => void signIn()}
+                >
+                  <Text style={styles.primaryButtonText}>
+                    {signingIn ? 'SIGNING IN…' : 'LOGIN'}
+                  </Text>
+                </Pressable>
+              </View>
             </View>
 
+            {/* Links stay at the bottom of the screen */}
             <View style={styles.links}>
               <Pressable
                   style={styles.linkButton}
@@ -174,86 +203,128 @@ export default function LoginScreen() {
                   disabled={signingIn}
                   onPress={() => router.push('/signup')}
               >
-                <Text style={styles.secondaryLinkText}>
+                <Text style={styles.linkText}>
                   Don't have an account?{' '}
                   <Text style={styles.secondaryLinkAccent}>Sign Up</Text>
                 </Text>
               </Pressable>
             </View>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
+          </KeyboardAvoidingView>
+        </SafeAreaView>
+      </PageBackground>
   );
 }
 
+const shadow = {
+  elevation: 3,
+  shadowColor: INK,
+  shadowOffset: { width: 0, height: 3 },
+  shadowOpacity: 0.12,
+  shadowRadius: 6,
+} as const;
+
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#F7F8F3' },
+  screen: { flex: 1 },
+  scrim: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 190,
+  },
   content: {
-    flexGrow: 1,
+    flex: 1,
     width: '100%',
     maxWidth: 420,
     alignSelf: 'center',
     justifyContent: 'center',
     paddingHorizontal: 28,
-    paddingVertical: 20,
-    gap: 28,
+    paddingTop: 12,
+    paddingBottom: 0,
+    gap: 24,
   },
-  header: { alignItems: 'center', gap: 12 },
+  header: {
+    flexShrink: 1,
+    minHeight: 0,
+    width: '100%',
+    alignItems: 'center',
+    gap: 8,
+  },
   title: {
-    fontSize: 34,
-    fontWeight: '300',
+    fontFamily: FONT,
+    fontSize: 36,
+    fontWeight: '800',
     letterSpacing: 1,
-    color: '#17618E',
+    color: BLUE,
     textAlign: 'center',
   },
-  logo: { width: 210, height: 210 },
-  form: { gap: 14 },
+  logo: { width: '100%', height: 210, flexShrink: 1 },  form: { gap: 14 },
+
+  fieldShadow: {
+    borderRadius: 18,
+    backgroundColor: '#F7F8F3',
+    ...shadow,
+  },
   field: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    paddingHorizontal: 14,
-    minHeight: 52,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#17618E',
-    backgroundColor: '#F7F8F3',
+    paddingHorizontal: 16,
+    minHeight: 60,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: BORDER,
+    overflow: 'hidden',
   },
-  fieldFocused: { borderWidth: 2, backgroundColor: '#FFFFFF' },
+  fieldFocused: { borderWidth: 2.5, borderColor: BLUE },
   input: {
     flex: 1,
-    fontSize: 15,
-    letterSpacing: 0.8,
-    color: '#0B2236',
+    fontSize: 18,
+    letterSpacing: 0.5,
+    color: INK,
     paddingVertical: 12,
   },
   primaryButton: {
-    minHeight: 56,
+    minHeight: 60,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 6,
-    backgroundColor: '#0F5C97',
+    borderRadius: 18,
+    backgroundColor: BLUE,
     marginTop: 14,
-    elevation: 8,
-    shadowColor: '#0B2236',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 4,
+    ...shadow,
+    shadowOpacity: 0.3,
+    elevation: 6,
   },
   primaryButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontFamily: FONT,
+    fontSize: 20,
+    fontWeight: '800',
     letterSpacing: 1.5,
     color: '#FFFFFF',
   },
-  links: { alignItems: 'center', gap: 2 },
+  links: {
+    alignItems: 'center',
+    alignSelf: 'center',
+    marginTop: -24,
+    marginBottom: Platform.OS === 'android' ? 22 : 6,
+  },
   linkButton: {
     minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 12,
   },
-  linkText: { fontSize: 15, color: '#17618E', textAlign: 'center' },
-  secondaryLinkText: { fontSize: 14, color: '#44525A', textAlign: 'center' },
-  secondaryLinkAccent: { fontWeight: '700', color: '#17618E' },
+  linkText: {
+    fontFamily: FONT,
+    fontSize: 18,
+    color: '#FFFFFF',
+    textAlign: 'center',
+    textShadowColor: 'rgba(11, 34, 54, 0.45)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+  secondaryLinkAccent: {
+    fontWeight: '800',
+    color: Platform.OS === 'android' ? '#46D2A8' : GREEN,
+  },
 });

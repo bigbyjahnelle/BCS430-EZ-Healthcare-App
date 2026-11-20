@@ -13,6 +13,17 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import PageBackground from '../components/PageBackground';
+import {
+  BLUE,
+  BORDER,
+  Card,
+  FONT,
+  GEAR_CLEARANCE,
+  INK,
+  ScreenHeader,
+  shadow,
+} from '../components/ScreenParts';
 import { getDataMode, getGeneration, mobileSession, modeLabel, useDataMode } from '../services/dataMode';
 
 const API_URL =
@@ -371,354 +382,346 @@ export default function MedicationsScreen() {
   }
 
   return (
-      <SafeAreaView style={styles.screen}>
-        <Stack.Screen options={{ headerShown: false }} />
+      <PageBackground>
+        <SafeAreaView style={styles.screen}>
+          <Stack.Screen options={{ headerShown: false }} />
 
-        <ScrollView
-            contentContainerStyle={styles.content}
-            keyboardShouldPersistTaps="handled"
-        >
-          <Pressable
-              style={styles.backButton}
-              accessibilityRole="button"
-              accessibilityLabel="Go back"
-              onPress={() => router.back()}
+          <ScrollView
+              contentContainerStyle={styles.content}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
           >
-            <Ionicons
-                name="arrow-back-outline"
-                size={26}
-                color="#17618E"
-                accessible={false}
-            />
-            <Text style={styles.backText}>Back</Text>
-          </Pressable>
+            <ScreenHeader title="Medications" />
 
-          <Text style={styles.title} accessibilityRole="header">
-            Medication Records
-          </Text>
+            <Pressable
+                style={styles.secondaryButton}
+                accessibilityRole="button"
+                onPress={() => router.push('/reminders')}
+            >
+              <Ionicons name="alarm-outline" size={26} color={BLUE} accessible={false} />
+              <Text style={styles.secondaryButtonText}>My Reminders & Today’s Doses</Text>
+            </Pressable>
 
-          <Pressable
-              style={styles.secondaryButton}
-              accessibilityRole="button"
-              onPress={() => router.push('/reminders')}
-          >
-            <Ionicons name="alarm-outline" size={24} color="#17618E" accessible={false} />
-            <Text style={styles.secondaryButtonText}>My Reminders & Today’s Doses</Text>
-          </Pressable>
-
-          <View style={styles.notice}>
-            <Text style={styles.noticeText}>
-              {modeLabel(mode)} — test data only.
-            </Text>
-          </View>
-
-          {loading && (
-              <View style={styles.loadingBox}>
-                <ActivityIndicator size="large" color="#17618E" />
-                <Text
-                    style={styles.body}
-                    accessibilityLiveRegion="polite"
-                >
-                  Connecting…
-                </Text>
-              </View>
-          )}
-
-          {error ? (
-              <Text style={styles.error} accessibilityRole="alert">
-                {error}
+            <View style={styles.notice}>
+              <Text style={styles.noticeText}>
+                {modeLabel(mode)} — test data only.
               </Text>
-          ) : null}
+            </View>
 
-          {!snapshot && !loading && !isSample && (
-              <View style={styles.card}>
-                <Text style={styles.cardTitle}>Connect to Epic</Text>
-
-                <Text style={styles.body}>
-                  Sign into Epic’s sandbox to view the test patient’s
-                  medication records. You will return here after approving
-                  access.
-                </Text>
-
-                <Pressable
-                    style={styles.button}
-                    accessibilityRole="button"
-                    onPress={connect}
-                >
-                  <Text style={styles.buttonText}>
-                    Connect to Epic
+            {loading && (
+                <Card style={styles.loadingBox}>
+                  <ActivityIndicator size="large" color={BLUE} />
+                  <Text
+                      style={styles.body}
+                      accessibilityLiveRegion="polite"
+                  >
+                    Connecting…
                   </Text>
-                </Pressable>
-              </View>
-          )}
+                </Card>
+            )}
 
-          {isSample && !loading && !snapshot && (
-              <Pressable style={styles.button} accessibilityRole="button" onPress={() => {
-                setError('');
-                setLoading(true);
-                setReload((value) => value + 1);
-              }}><Text style={styles.buttonText}>Try Again</Text></Pressable>
-          )}
-
-          {snapshot && (
-              <>
-                <View style={styles.card}>
-                  <Text style={styles.cardTitle}>
-                    {snapshot.patient.name}
-                  </Text>
-
-                  <Text style={styles.body}>
-                    Source: {snapshot.source}
-                  </Text>
-
-                  <Text style={styles.smallText}>
-                    Retrieved:{' '}
-                    {new Date(snapshot.fetchedAt).toLocaleString()}
-                  </Text>
-
-                  <Text style={styles.smallText}>
-                    Saved snapshot — this screen does not continuously
-                    update.
+            {error ? (
+                <View style={styles.errorBox}>
+                  <Text style={styles.error} accessibilityRole="alert">
+                    {error}
                   </Text>
                 </View>
+            ) : null}
 
-                {snapshot.medications.length === 0 && (
-                    <Text style={styles.body}>
-                      No medication orders were returned.
+            {!snapshot && !loading && !isSample && (
+                <Card style={styles.cardGap}>
+                  <Text style={styles.cardTitle}>Connect to Epic</Text>
+
+                  <Text style={styles.body}>
+                    Sign into Epic’s sandbox to view the test patient’s
+                    medication records. You will return here after approving
+                    access.
+                  </Text>
+
+                  <Pressable
+                      style={styles.button}
+                      accessibilityRole="button"
+                      onPress={connect}
+                  >
+                    <Text style={styles.buttonText}>
+                      Connect to Epic
                     </Text>
-                )}
+                  </Pressable>
+                </Card>
+            )}
 
-                {snapshot.medications.map((medication) => (
-                    <View key={medication.id} style={styles.card}>
-                      <Ionicons
-                          name="medkit-outline"
-                          size={36}
-                          color="#17618E"
-                          accessible={false}
-                      />
+            {isSample && !loading && !snapshot && (
+                <Pressable style={styles.button} accessibilityRole="button" onPress={() => {
+                  setError('');
+                  setLoading(true);
+                  setReload((value) => value + 1);
+                }}><Text style={styles.buttonText}>Try Again</Text></Pressable>
+            )}
 
-                      <Text
-                          style={styles.cardTitle}
-                          accessibilityRole="header"
-                      >
-                        {medication.name}
-                      </Text>
+            {snapshot && (
+                <>
+                  <Card style={styles.cardGap}>
+                    <Text style={styles.cardTitle}>
+                      {snapshot.patient.name}
+                    </Text>
 
-                      <View style={styles.statusBadge}>
-                        <Text style={styles.statusText}>
-                          Status: {medication.status}
+                    <Text style={styles.body}>
+                      Source: {snapshot.source}
+                    </Text>
+
+                    <Text style={styles.smallText}>
+                      Retrieved:{' '}
+                      {new Date(snapshot.fetchedAt).toLocaleString()}
+                    </Text>
+
+                    <Text style={styles.smallText}>
+                      Saved snapshot — this screen does not continuously
+                      update.
+                    </Text>
+                  </Card>
+
+                  {snapshot.medications.length === 0 && (
+                      <Card>
+                        <Text style={styles.body}>
+                          No medication orders were returned.
                         </Text>
-                      </View>
+                      </Card>
+                  )}
 
-                      {medication.status === 'completed' && (
-                          <Text style={styles.smallText}>
-                            Historical order marked completed in the source
-                            record.
-                          </Text>
-                      )}
+                  {snapshot.medications.map((medication) => (
+                      <Card key={medication.id} style={styles.cardGap}>
+                        <View style={styles.medHeader}>
+                          <View style={styles.iconCircle}>
+                            <Ionicons
+                                name="medkit-outline"
+                                size={32}
+                                color={BLUE}
+                                accessible={false}
+                            />
+                          </View>
 
-                      <Text style={styles.detailLabel}>
-                        Recorded dosage
-                      </Text>
-                      <Text style={styles.body}>
-                        {medication.dosage}
-                      </Text>
-
-                      <Text style={styles.detailLabel}>
-                        Recorded frequency
-                      </Text>
-                      <Text style={styles.body}>
-                        {medication.frequency}
-                      </Text>
-
-                      <Text style={styles.detailLabel}>
-                        Recorded instructions
-                      </Text>
-                      <Text style={styles.body}>
-                        {medication.instructions}
-                      </Text>
-
-                      <Text style={styles.detailLabel}>Order date</Text>
-                      <Text style={styles.body}>
-                        {medication.authoredOn}
-                      </Text>
-
-                      {medication.status !== 'completed' && (
-                          <Pressable
-                              style={styles.secondaryButton}
-                              accessibilityRole="button"
-                              accessibilityLabel={`Set a reminder for ${medication.name}`}
-                              onPress={() => router.push({
-                                pathname: '/reminders',
-                                params: {
-                                  medicationName: medication.name,
-                                  dosage: medication.dosage === 'Not provided' ? '' : medication.dosage,
-                                },
-                              })}
+                          <Text
+                              style={[styles.cardTitle, styles.flex]}
+                              accessibilityRole="header"
                           >
-                            <Ionicons name="alarm-outline" size={24} color="#17618E" accessible={false} />
-                            <Text style={styles.secondaryButtonText}>Set Reminder</Text>
-                          </Pressable>
-                      )}
-                    </View>
-                ))}
+                            {medication.name}
+                          </Text>
+                        </View>
 
-                {snapshot.warnings.map((warning, index) => (
-                    <View key={index} style={styles.notice}>
-                      <Text style={styles.noticeText}>{warning}</Text>
-                    </View>
-                ))}
+                        <View style={styles.statusBadge}>
+                          <Text style={styles.statusText}>
+                            Status: {medication.status}
+                          </Text>
+                        </View>
 
-                {!isSample && <Pressable
-                    style={styles.button}
-                    accessibilityRole="button"
-                    onPress={() => {
-                      mobileSession.token = null;
-                      pendingLogin = null;
-                      setSnapshot(null);
-                      setError('');
-                      router.setParams({ epic: '', attempt: '' });
-                    }}
-                >
-                  <Text style={styles.buttonText}>Disconnect</Text>
-                </Pressable>}
-              </>
-          )}
-        </ScrollView>
-      </SafeAreaView>
+                        {medication.status === 'completed' && (
+                            <Text style={styles.smallText}>
+                              Historical order marked completed in the source
+                              record.
+                            </Text>
+                        )}
+
+                        <Text style={styles.detailLabel}>
+                          Recorded dosage
+                        </Text>
+                        <Text style={styles.body}>
+                          {medication.dosage}
+                        </Text>
+
+                        <Text style={styles.detailLabel}>
+                          Recorded frequency
+                        </Text>
+                        <Text style={styles.body}>
+                          {medication.frequency}
+                        </Text>
+
+                        <Text style={styles.detailLabel}>
+                          Recorded instructions
+                        </Text>
+                        <Text style={styles.body}>
+                          {medication.instructions}
+                        </Text>
+
+                        <Text style={styles.detailLabel}>Order date</Text>
+                        <Text style={styles.body}>
+                          {medication.authoredOn}
+                        </Text>
+
+                        {medication.status !== 'completed' && (
+                            <Pressable
+                                style={styles.secondaryButton}
+                                accessibilityRole="button"
+                                accessibilityLabel={`Set a reminder for ${medication.name}`}
+                                onPress={() => router.push({
+                                  pathname: '/reminders',
+                                  params: {
+                                    medicationName: medication.name,
+                                    dosage: medication.dosage === 'Not provided' ? '' : medication.dosage,
+                                  },
+                                })}
+                            >
+                              <Ionicons name="alarm-outline" size={26} color={BLUE} accessible={false} />
+                              <Text style={styles.secondaryButtonText}>Set Reminder</Text>
+                            </Pressable>
+                        )}
+                      </Card>
+                  ))}
+
+                  {snapshot.warnings.map((warning, index) => (
+                      <View key={index} style={styles.notice}>
+                        <Text style={styles.noticeText}>{warning}</Text>
+                      </View>
+                  ))}
+
+                  {!isSample && <Pressable
+                      style={styles.button}
+                      accessibilityRole="button"
+                      onPress={() => {
+                        mobileSession.token = null;
+                        pendingLogin = null;
+                        setSnapshot(null);
+                        setError('');
+                        router.setParams({ epic: '', attempt: '' });
+                      }}
+                  >
+                    <Text style={styles.buttonText}>Disconnect</Text>
+                  </Pressable>}
+                </>
+            )}
+          </ScrollView>
+        </SafeAreaView>
+      </PageBackground>
   );
 }
 
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#F7F8F3',
   },
   content: {
     flexGrow: 1,
     width: '100%',
     maxWidth: 540,
     alignSelf: 'center',
-    padding: 20,
-    gap: 20,
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: GEAR_CLEARANCE,
+    gap: 16,
   },
-  backButton: {
-    minHeight: 56,
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: 8,
-    paddingHorizontal: 12,
-  },
-  backText: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#17618E',
-  },
-  title: {
-    fontSize: 30,
-    fontWeight: '800',
-    color: '#17618E',
+  flex: {
+    flex: 1,
   },
   notice: {
     padding: 16,
-    borderRadius: 16,
+    borderRadius: 18,
     backgroundColor: '#E7F2EC',
+    borderWidth: 1.5,
+    borderColor: '#B9DCC8',
   },
   noticeText: {
     fontSize: 17,
     lineHeight: 25,
     color: '#18533F',
   },
-  card: {
-    padding: 22,
-    gap: 14,
-    borderRadius: 22,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#DDE4E2',
+  cardGap: {
+    gap: 12,
+  },
+  medHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  iconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#DCEAF5',
   },
   cardTitle: {
+    fontFamily: FONT,
     fontSize: 24,
-    fontWeight: '700',
-    color: '#0B2236',
+    fontWeight: '800',
+    color: INK,
   },
   body: {
     fontSize: 20,
     lineHeight: 29,
-    color: '#0B2236',
+    color: INK,
   },
   smallText: {
     fontSize: 17,
     lineHeight: 25,
-    color: '#425466',
+    color: '#2E3A42',
   },
   detailLabel: {
+    fontFamily: FONT,
     fontSize: 18,
-    fontWeight: '700',
-    color: '#17618E',
+    fontWeight: '800',
+    color: BLUE,
   },
   statusBadge: {
     alignSelf: 'flex-start',
     paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 12,
-    backgroundColor: '#EDF0F3',
+    borderRadius: 14,
+    backgroundColor: '#DCEAF5',
+    borderWidth: 1.5,
+    borderColor: BORDER,
   },
   statusText: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#0B2236',
-  },
-  input: {
-    minHeight: 60,
-    padding: 14,
-    borderWidth: 2,
-    borderColor: '#17618E',
-    borderRadius: 12,
-    fontSize: 22,
-    color: '#0B2236',
-    backgroundColor: '#FFFFFF',
+    color: INK,
   },
   button: {
-    minHeight: 56,
+    minHeight: 60,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 16,
-    borderRadius: 16,
-    backgroundColor: '#17618E',
+    borderRadius: 18,
+    backgroundColor: BLUE,
+    ...shadow,
+    shadowOpacity: 0.3,
+    elevation: 6,
+  },
+  buttonText: {
+    fontFamily: FONT,
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    textAlign: 'center',
   },
   secondaryButton: {
-    minHeight: 56,
+    minHeight: 60,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
     padding: 14,
-    borderRadius: 16,
+    borderRadius: 18,
     borderWidth: 2,
-    borderColor: '#17618E',
+    borderColor: BLUE,
     backgroundColor: '#FFFFFF',
   },
   secondaryButtonText: {
+    fontFamily: FONT,
     fontSize: 20,
-    fontWeight: '700',
-    color: '#17618E',
-    textAlign: 'center',
-  },
-  disabledButton: {
-    opacity: 0.5,
-  },
-  buttonText: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    fontWeight: '800',
+    color: BLUE,
     textAlign: 'center',
   },
   loadingBox: {
     alignItems: 'center',
     gap: 16,
-    padding: 20,
+  },
+  errorBox: {
+    padding: 14,
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 2,
+    borderColor: '#9B2424',
   },
   error: {
     fontSize: 18,

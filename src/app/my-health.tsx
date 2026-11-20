@@ -1,9 +1,11 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
 import type { ComponentProps } from 'react';
-import { Stack, useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import PageBackground from '../components/PageBackground';
+import { BLUE, Card, FONT, INK, PrimaryButton, ScreenHeader } from '../components/ScreenParts';
 import { modeLabel, useDataMode } from '../services/dataMode';
 import { getMobileSession } from '../screens/MedicationsScreen';
 
@@ -155,94 +157,93 @@ export default function MyHealthScreen() {
     ] : [];
 
     return (
-        <SafeAreaView style={styles.screen}>
-            <Stack.Screen options={{ title: 'My Health', headerShown: true }} />
-            <ScrollView contentContainerStyle={styles.content}>
-                <Text style={styles.body}>{modeLabel(mode)}. Test data only.</Text>
+        <PageBackground>
+            <SafeAreaView style={styles.screen}>
+                <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+                    <ScreenHeader title="My Health" />
+                    <Text style={styles.body}>{modeLabel(mode)}. Test data only.</Text>
 
-                {connect ? (
-                    <>
-                        <Text style={styles.body} accessibilityLiveRegion="polite">{message}</Text>
-                        <Pressable accessibilityRole="button" style={styles.button} onPress={() => router.push('/medications')}>
-                            <Text style={styles.buttonText}>Go to Medications</Text>
-                        </Pressable>
-                    </>
-                ) : (
-                    <>
-                        <Text accessibilityRole="header" style={styles.title}>About Me</Text>
-                        {profileMessage ? (
-                            <Text style={styles.body} accessibilityLiveRegion="polite">{profileMessage}</Text>
-                        ) : null}
-                        {profile ? (
-                            <View style={styles.card}>
-                                <View style={styles.profileHeader}>
-                                    <View style={styles.avatar}>
-                                        <Ionicons name="person" size={34} color="#FFFFFF" accessible={false} />
-                                    </View>
-                                    <Text style={styles.profileName} accessibilityRole="header">{profile.name}</Text>
-                                </View>
-                                {details.map((item) => (
-                                    <View
-                                        key={item.label}
-                                        style={styles.detailRow}
-                                        accessible
-                                        accessibilityLabel={`${item.label}: ${item.value ?? 'Not on file'}`}
-                                    >
-                                        <Ionicons name={item.icon} size={26} color="#17618E" accessible={false} />
-                                        <View style={styles.detailText}>
-                                            <Text style={styles.label}>{item.label}</Text>
-                                            <Text style={item.value ? styles.body : styles.missing}>
-                                                {item.value ?? 'Not on file'}
-                                            </Text>
+                    {connect ? (
+                        <>
+                            <Text style={styles.body} accessibilityLiveRegion="polite">{message}</Text>
+                            <PrimaryButton label="Go to Medications" onPress={() => router.push('/medications')} />
+                        </>
+                    ) : (
+                        <>
+                            <Text accessibilityRole="header" style={styles.title}>About Me</Text>
+                            {profileMessage ? (
+                                <Text style={styles.body} accessibilityLiveRegion="polite">{profileMessage}</Text>
+                            ) : null}
+                            {profile ? (
+                                <Card style={styles.cardGap}>
+                                    <View style={styles.profileHeader}>
+                                        <View style={styles.avatar}>
+                                            <Ionicons name="person" size={34} color="#FFFFFF" accessible={false} />
                                         </View>
+                                        <Text style={styles.profileName} accessibilityRole="header">{profile.name}</Text>
                                     </View>
-                                ))}
-                                <Text style={styles.smallText}>
-                                    From your health record. To change these details, contact your provider’s office.
-                                </Text>
-                            </View>
-                        ) : null}
+                                    {details.map((item) => (
+                                        <View
+                                            key={item.label}
+                                            style={styles.detailRow}
+                                            accessible
+                                            accessibilityLabel={`${item.label}: ${item.value ?? 'Not on file'}`}
+                                        >
+                                            <View style={styles.detailIcon}>
+                                                <Ionicons name={item.icon} size={26} color={BLUE} accessible={false} />
+                                            </View>
+                                            <View style={styles.detailText}>
+                                                <Text style={styles.label}>{item.label}</Text>
+                                                <Text style={item.value ? styles.body : styles.missing}>
+                                                    {item.value ?? 'Not on file'}
+                                                </Text>
+                                            </View>
+                                        </View>
+                                    ))}
+                                    <Text style={styles.smallText}>
+                                        From your health record. To change these details, contact your provider’s office.
+                                    </Text>
+                                </Card>
+                            ) : null}
 
-                        <Text accessibilityRole="header" style={styles.title}>My Vitals</Text>
-                        {message ? <Text style={styles.body} accessibilityLiveRegion="polite">{message}</Text> : null}
-                        {readings.map((vital) => (
-                            <View key={vital.id} style={styles.card}>
-                                <Text style={styles.name}>{vital.name}</Text>
-                                <Text style={styles.body}>{vital.value}</Text>
-                                <Text style={styles.body}>Recorded: {vital.recordedAt?.slice(0, 10) || 'Date unavailable'}</Text>
-                            </View>
-                        ))}
-                    </>
-                )}
+                            <Text accessibilityRole="header" style={styles.title}>My Vitals</Text>
+                            {message ? <Text style={styles.body} accessibilityLiveRegion="polite">{message}</Text> : null}
+                            {readings.map((vital) => (
+                                <Card key={vital.id} style={styles.cardGap}>
+                                    <Text style={styles.name}>{vital.name}</Text>
+                                    <Text style={styles.body}>{vital.value}</Text>
+                                    <Text style={styles.body}>Recorded: {vital.recordedAt?.slice(0, 10) || 'Date unavailable'}</Text>
+                                </Card>
+                            ))}
+                        </>
+                    )}
 
-                {canRetry ? (
-                    <Pressable accessibilityRole="button" style={styles.button} onPress={() => {
-                        setCanRetry(false);
-                        setAttempt((value) => value + 1);
-                    }}>
-                        <Text style={styles.buttonText}>Try Again</Text>
-                    </Pressable>
-                ) : null}
-            </ScrollView>
-        </SafeAreaView>
+                    {canRetry ? (
+                        <PrimaryButton label="Try Again" onPress={() => {
+                            setCanRetry(false);
+                            setAttempt((value) => value + 1);
+                        }} />
+                    ) : null}
+                </ScrollView>
+            </SafeAreaView>
+        </PageBackground>
     );
 }
 
 const styles = StyleSheet.create({
-    screen: { flex: 1, backgroundColor: '#F7F8F3' },
-    content: { padding: 20, gap: 16, width: '100%', maxWidth: 540, alignSelf: 'center' },
-    title: { fontSize: 28, fontWeight: '800', color: '#0B2236', marginTop: 4 },
-    body: { fontSize: 18, lineHeight: 26, color: '#0B2236' },
-    missing: { fontSize: 18, lineHeight: 26, color: '#6B7785', fontStyle: 'italic' },
-    smallText: { fontSize: 16, lineHeight: 23, color: '#425466' },
-    label: { fontSize: 16, fontWeight: '700', color: '#17618E' },
-    card: { backgroundColor: '#FFFFFF', borderColor: '#DDE4E2', borderWidth: 1, borderRadius: 18, padding: 16, gap: 10 },
+    screen: { flex: 1 },
+    content: { paddingHorizontal: 20, paddingTop: 5, paddingBottom: 24, gap: 16, width: '100%', maxWidth: 540, alignSelf: 'center' },
+    title: { fontFamily: FONT, fontSize: 28, fontWeight: '800', color: INK, marginTop: 4 },
+    body: { fontFamily: FONT, fontSize: 18, lineHeight: 26, color: INK },
+    missing: { fontFamily: FONT, fontSize: 18, lineHeight: 26, color: '#6B7785', fontStyle: 'italic' },
+    smallText: { fontFamily: FONT, fontSize: 16, lineHeight: 23, color: '#425466' },
+    label: { fontFamily: FONT, fontSize: 16, fontWeight: '800', color: BLUE },
+    cardGap: { gap: 10 },
     profileHeader: { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 4 },
-    avatar: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#17618E', alignItems: 'center', justifyContent: 'center' },
-    profileName: { flex: 1, fontSize: 24, fontWeight: '800', color: '#0B2236' },
-    detailRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 14, paddingVertical: 8, borderTopWidth: 1, borderTopColor: '#EDF0F3' },
+    avatar: { width: 56, height: 56, borderRadius: 28, backgroundColor: BLUE, alignItems: 'center', justifyContent: 'center' },
+    profileName: { flex: 1, fontFamily: FONT, fontSize: 24, fontWeight: '800', color: INK },
+    detailRow: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 8, borderTopWidth: 1, borderTopColor: '#C9D6DD' },
+    detailIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#DCEAF5', alignItems: 'center', justifyContent: 'center' },
     detailText: { flex: 1, gap: 2 },
-    name: { fontSize: 20, fontWeight: '700', color: '#0B2236' },
-    button: { padding: 16, borderRadius: 12, alignItems: 'center', backgroundColor: '#17618E' },
-    buttonText: { fontSize: 18, fontWeight: '700', color: '#FFFFFF' },
+    name: { fontFamily: FONT, fontSize: 20, fontWeight: '800', color: INK },
 });

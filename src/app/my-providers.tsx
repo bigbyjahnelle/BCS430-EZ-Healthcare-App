@@ -1,7 +1,9 @@
-import { Stack, useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import PageBackground from '../components/PageBackground';
+import { Card, FONT, INK, PrimaryButton, ScreenHeader } from '../components/ScreenParts';
 import { modeLabel, useDataMode } from '../services/dataMode';
 import { getMobileSession } from '../screens/MedicationsScreen';
 
@@ -62,35 +64,33 @@ export default function MyProvidersScreen() {
     }, [mode]));
 
     return (
-        <SafeAreaView style={styles.screen}>
-            <Stack.Screen options={{ title: 'My Providers', headerShown: true }} />
-            <ScrollView contentContainerStyle={styles.content}>
-                <Text style={styles.body}>{modeLabel(mode)}. Prescribing providers linked to the displayed records.</Text>
-                {message ? <Text style={styles.body} accessibilityLiveRegion="polite">{message}</Text> : null}
-                {needsConnection ? (
-                    <Pressable accessibilityRole="button" style={styles.button} onPress={() => router.push('/medications')}>
-                        <Text style={styles.buttonText}>Go to Medications</Text>
-                    </Pressable>
-                ) : null}
-                {providers.map((provider) => (
-                    <View key={provider.id} style={styles.card}>
-                        <Text accessibilityRole="header" style={styles.name}>
-                            {provider.name || 'Prescribing provider — name unavailable'}
-                        </Text>
-                        {provider.name ? <Text style={styles.body}>{provider.role}</Text> : null}
-                    </View>
-                ))}
-            </ScrollView>
-        </SafeAreaView>
+        <PageBackground>
+            <SafeAreaView style={styles.screen}>
+                <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+                    <ScreenHeader title="My Providers" />
+                    <Text style={styles.body}>{modeLabel(mode)}. Prescribing providers linked to the displayed records.</Text>
+                    {message ? <Text style={styles.body} accessibilityLiveRegion="polite">{message}</Text> : null}
+                    {needsConnection ? (
+                        <PrimaryButton label="Go to Medications" onPress={() => router.push('/medications')} />
+                    ) : null}
+                    {providers.map((provider) => (
+                        <Card key={provider.id} style={styles.cardGap}>
+                            <Text accessibilityRole="header" style={styles.name}>
+                                {provider.name || 'Prescribing provider — name unavailable'}
+                            </Text>
+                            {provider.name ? <Text style={styles.body}>{provider.role}</Text> : null}
+                        </Card>
+                    ))}
+                </ScrollView>
+            </SafeAreaView>
+        </PageBackground>
     );
 }
 
 const styles = StyleSheet.create({
-    screen: { flex: 1, backgroundColor: '#F7F8F3' },
-    content: { padding: 20, gap: 16, width: '100%', maxWidth: 540, alignSelf: 'center' },
-    body: { fontSize: 18, color: '#0B2236' },
-    card: { backgroundColor: '#FFFFFF', borderColor: '#DDE4E2', borderWidth: 1, borderRadius: 18, padding: 16, gap: 6 },
-    name: { fontSize: 20, fontWeight: '700', color: '#0B2236' },
-    button: { padding: 16, borderRadius: 12, alignItems: 'center', backgroundColor: '#17618E' },
-    buttonText: { fontSize: 18, fontWeight: '700', color: '#FFFFFF' },
+    screen: { flex: 1 },
+    content: { paddingHorizontal: 20, paddingTop: 5, paddingBottom: 24, gap: 16, width: '100%', maxWidth: 540, alignSelf: 'center' },
+    body: { fontFamily: FONT, fontSize: 18, color: INK },
+    cardGap: { gap: 6 },
+    name: { fontFamily: FONT, fontSize: 20, fontWeight: '800', color: INK },
 });

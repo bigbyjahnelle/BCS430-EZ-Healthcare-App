@@ -1,7 +1,9 @@
-import { Stack, useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import PageBackground from '../components/PageBackground';
+import { BLUE, BORDER, Card, FONT, INK, PrimaryButton, ScreenHeader } from '../components/ScreenParts';
 import { getMobileSession } from '../screens/MedicationsScreen';
 import { modeLabel, useDataMode } from '../services/dataMode';
 
@@ -97,59 +99,55 @@ export default function TestResultsScreen() {
     }, [mode, attempt]));
 
     return (
-        <SafeAreaView style={styles.screen} edges={['left', 'right', 'bottom']}>
-            <Stack.Screen options={{ title: 'Test Results', headerShown: true }} />
-            <ScrollView contentContainerStyle={styles.content}>
-                <Text style={styles.title} accessibilityRole="header">Lab Results</Text>
-                <View style={styles.notice}><Text style={styles.body}>{modeLabel(mode)}. Test data only.</Text></View>
-                <Text style={styles.body}>Individual laboratory results. This version does not display full reports or imaging. Values and flags are shown as supplied, without medical interpretation.</Text>
-                {loading && <View style={styles.card}><ActivityIndicator size="large" color="#17618E" /><Text style={styles.body} accessibilityLiveRegion="polite">Loading test results…</Text></View>}
-                {!!error && <Text style={styles.error} accessibilityRole="alert">{error}</Text>}
-                {needsConnection && <>
-                    <Text style={styles.body}>Use the existing Epic connection in Medications, then return here.</Text>
-                    <Pressable style={styles.button} accessibilityRole="button" onPress={() => router.push('/medications')}>
-                        <Text style={styles.buttonText}>Go to Medications</Text>
-                    </Pressable>
-                </>}
-                {!loading && !needsConnection && <Pressable style={styles.button} accessibilityRole="button" onPress={() => setAttempt((n) => n + 1)}>
-                    <Text style={styles.buttonText}>{error ? 'Try Again' : 'Refresh Results'}</Text>
-                </Pressable>}
-                {data && <>
-                    <View style={styles.card}>
-                        <Text style={styles.name}>{data.patient.name}</Text>
-                        <Text style={styles.body}>Source: {data.source}</Text>
-                        <Text style={styles.body}>Retrieved: {new Date(data.fetchedAt).toLocaleString()}</Text>
-                    </View>
-                    {data.warnings.map((warning, i) => <View style={styles.notice} key={i}><Text style={styles.body}>{warning}</Text></View>)}
-                    {data.results.length === 0 && <Text style={styles.body}>No displayable laboratory results were returned for this request. This is not a statement about the patient's complete record.</Text>}
-                    {data.results.map((lab) => <View key={lab.id} style={styles.card}>
-                        <Text style={styles.name} accessibilityRole="header">{lab.name}</Text>
-                        <Text style={styles.body}>Status: {lab.status}</Text>
-                        {['preliminary', 'registered', 'partial'].includes(lab.status) && <Text style={styles.body}>This result is not final.</Text>}
-                        <Details item={lab} />
-                        <Text style={styles.body}>Recorded: {lab.recordedAt || 'Not provided'}</Text>
-                        <Text style={styles.body}>Issued: {lab.issuedAt || 'Not provided'}</Text>
-                        {lab.components.map((component, i) => <View style={styles.component} key={i}>
-                            <Text style={styles.name}>{component.name}</Text><Details item={component} />
-                        </View>)}
-                        {lab.notes.map((note, i) => <Text style={styles.body} key={i}>Note: {note}</Text>)}
-                    </View>)}
-                </>}
-            </ScrollView>
-        </SafeAreaView>
+        <PageBackground>
+            <SafeAreaView style={styles.screen}>
+                <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+                    <ScreenHeader title="Test Results" />
+                    <View style={styles.notice}><Text style={styles.body}>{modeLabel(mode)}. Test data only.</Text></View>
+                    <Text style={styles.body}>Individual laboratory results. This version does not display full reports or imaging. Values and flags are shown as supplied, without medical interpretation.</Text>
+                    {loading && <Card style={styles.cardGap}><ActivityIndicator size="large" color={BLUE} /><Text style={styles.body} accessibilityLiveRegion="polite">Loading test results…</Text></Card>}
+                    {!!error && <Text style={styles.error} accessibilityRole="alert">{error}</Text>}
+                    {needsConnection && <>
+                        <Text style={styles.body}>Use the existing Epic connection in Medications, then return here.</Text>
+                        <PrimaryButton label="Go to Medications" onPress={() => router.push('/medications')} />
+                    </>}
+                    {!loading && !needsConnection && <PrimaryButton
+                        label={error ? 'Try Again' : 'Refresh Results'}
+                        onPress={() => setAttempt((n) => n + 1)} />}
+                    {data && <>
+                        <Card style={styles.cardGap}>
+                            <Text style={styles.name}>{data.patient.name}</Text>
+                            <Text style={styles.body}>Source: {data.source}</Text>
+                            <Text style={styles.body}>Retrieved: {new Date(data.fetchedAt).toLocaleString()}</Text>
+                        </Card>
+                        {data.warnings.map((warning, i) => <View style={styles.notice} key={i}><Text style={styles.body}>{warning}</Text></View>)}
+                        {data.results.length === 0 && <Text style={styles.body}>No displayable laboratory results were returned for this request. This is not a statement about the patient's complete record.</Text>}
+                        {data.results.map((lab) => <Card key={lab.id} style={styles.cardGap}>
+                            <Text style={styles.name} accessibilityRole="header">{lab.name}</Text>
+                            <Text style={styles.body}>Status: {lab.status}</Text>
+                            {['preliminary', 'registered', 'partial'].includes(lab.status) && <Text style={styles.body}>This result is not final.</Text>}
+                            <Details item={lab} />
+                            <Text style={styles.body}>Recorded: {lab.recordedAt || 'Not provided'}</Text>
+                            <Text style={styles.body}>Issued: {lab.issuedAt || 'Not provided'}</Text>
+                            {lab.components.map((component, i) => <View style={styles.component} key={i}>
+                                <Text style={styles.name}>{component.name}</Text><Details item={component} />
+                            </View>)}
+                            {lab.notes.map((note, i) => <Text style={styles.body} key={i}>Note: {note}</Text>)}
+                        </Card>)}
+                    </>}
+                </ScrollView>
+            </SafeAreaView>
+        </PageBackground>
     );
 }
 const styles = StyleSheet.create({
-    screen: { flex: 1, backgroundColor: '#F7F8F3' },
-    content: { padding: 20, gap: 16, width: '100%', maxWidth: 540, alignSelf: 'center' },
-    title: { fontSize: 28, fontWeight: '800', color: '#0B2236' },
-    body: { fontSize: 18, color: '#0B2236' },
-    card: { backgroundColor: '#FFFFFF', borderColor: '#DDE4E2', borderWidth: 1, borderRadius: 18, padding: 16, gap: 12 },
-    name: { fontSize: 20, fontWeight: '700', color: '#0B2236' },
-    value: { fontSize: 23, fontWeight: '700', color: '#17618E' },
-    notice: { backgroundColor: '#E4F2EC', padding: 16, borderRadius: 18 },
-    error: { fontSize: 18, color: '#B42318' },
-    component: { borderTopWidth: 1, borderColor: '#DDE4E2', paddingTop: 12, gap: 8 },
-    button: { minHeight: 52, padding: 16, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: '#17618E' },
-    buttonText: { fontSize: 18, fontWeight: '700', color: '#FFFFFF' },
+    screen: { flex: 1 },
+    content: { paddingHorizontal: 20, paddingTop: 5, paddingBottom: 24, gap: 16, width: '100%', maxWidth: 540, alignSelf: 'center' },
+    body: { fontFamily: FONT, fontSize: 18, color: INK },
+    cardGap: { gap: 12 },
+    name: { fontFamily: FONT, fontSize: 20, fontWeight: '800', color: INK },
+    value: { fontFamily: FONT, fontSize: 23, fontWeight: '800', color: BLUE },
+    notice: { backgroundColor: '#D9F0E8', padding: 16, borderRadius: 18, borderWidth: 1.5, borderColor: BORDER },
+    error: { fontFamily: FONT, fontSize: 18, color: '#B42318' },
+    component: { borderTopWidth: 1, borderColor: '#C9D6DD', paddingTop: 12, gap: 8 },
 });

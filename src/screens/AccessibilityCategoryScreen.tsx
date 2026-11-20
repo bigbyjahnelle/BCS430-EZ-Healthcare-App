@@ -1,8 +1,24 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import type { ComponentProps } from 'react';
-import { StyleSheet, Text, View, Pressable } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import PageBackground from '../components/PageBackground';
+
+// Colors (taken from the EZ logo)
+const BLUE = '#0B5394';
+const INK = '#0B2236';
+const BORDER = '#A9C2D6';
+const CARD_GRADIENT = ['#FFFFFF', '#F3F7F4'] as const;
+
+// true = serif text like the design picture, false = normal app font
+const USE_SERIF = true;
+const SERIF = Platform.select({ ios: 'Georgia', android: 'serif', default: 'serif' });
+const FONT = USE_SERIF ? SERIF : undefined;
+
+// Same size as the Home screen corner buttons
+const CORNER_CIRCLE = 72;
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
@@ -15,106 +31,150 @@ export default function AccessibilityCategoryScreen() {
   }>();
 
   return (
-      <SafeAreaView style={styles.screen}>
-        <View style={styles.content}>
-          <Pressable
-              style={styles.backButton}
-              accessibilityRole="button"
-              accessibilityLabel="Back"
-              onPress={() => router.back()}
-          >
-            <Ionicons
-                name="arrow-back-outline"
-                size={24}
-                color="#17618E"
-                accessible={false}
-            />
-          </Pressable>
+      <PageBackground>
+        <SafeAreaView style={styles.screen}>
+          <View style={styles.content}>
 
-          <View style={styles.body}>
-            <View style={styles.iconCircle}>
-              <Ionicons
-                  name={(icon || 'accessibility-outline') as IconName}
-                  size={44}
-                  color="#17618E"
-                  accessible={false}
-              />
-            </View>
+            <Pressable
+                style={styles.cornerButton}
+                accessibilityRole="button"
+                accessibilityLabel="Back"
+                onPress={() => router.back()}
+            >
+              <LinearGradient colors={CARD_GRADIENT} style={styles.cornerCircle}>
+                <Ionicons
+                    name="arrow-back-outline"
+                    size={36}
+                    color={BLUE}
+                    accessible={false}
+                />
+              </LinearGradient>
+              <Text style={styles.cornerLabel}>Back</Text>
+            </Pressable>
 
-            <Text style={styles.title}>{title}</Text>
-            <Text style={styles.subtitle}>{description}</Text>
+            <View style={styles.body}>
+              <View style={styles.iconCircle}>
+                <Ionicons
+                    name={(icon || 'accessibility-outline') as IconName}
+                    size={44}
+                    color={BLUE}
+                    accessible={false}
+                />
+              </View>
 
-            <View style={styles.placeholder}>
-              <Text style={styles.placeholderText}>
-                This feature is not connected yet.
+              <Text style={styles.title} accessibilityRole="header">
+                {title}
               </Text>
+
+              <Text style={styles.subtitle}>{description}</Text>
+
+              <LinearGradient colors={CARD_GRADIENT} style={styles.placeholder}>
+                <Text style={styles.placeholderText}>
+                  This feature is not connected yet.
+                </Text>
+              </LinearGradient>
             </View>
+
           </View>
-        </View>
-      </SafeAreaView>
+        </SafeAreaView>
+      </PageBackground>
   );
 }
+
+const shadow = {
+  elevation: 3,
+  shadowColor: INK,
+  shadowOffset: { width: 0, height: 3 },
+  shadowOpacity: 0.12,
+  shadowRadius: 6,
+} as const;
 
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#F7F8F3',
   },
+
   content: {
     flex: 1,
     width: '100%',
     maxWidth: 540,
     alignSelf: 'center',
-    padding: 16,
+    paddingTop: 5,
+    paddingHorizontal: 20,
     gap: 24,
   },
-  backButton: {
+
+  // Corner button (same as Home)
+  cornerButton: {
     alignSelf: 'flex-start',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    minWidth: 80,
+    alignItems: 'center',
+    gap: 6,
+    padding: 4,
+  },
+
+  cornerCircle: {
+    width: CORNER_CIRCLE,
+    height: CORNER_CIRCLE,
+    borderRadius: CORNER_CIRCLE / 2,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#F7F8F3',
     borderWidth: 1,
-    borderColor: '#DDE4E2',
+    borderColor: '#C9D6DD',
+    ...shadow,
   },
+
+  cornerLabel: {
+    fontFamily: FONT,
+    fontSize: 18,
+    fontWeight: '600',
+    textAlign: 'center',
+    color: INK,
+  },
+
   body: {
     alignItems: 'center',
     gap: 10,
-    marginTop: 30,
+    marginTop: 10,
   },
+
   iconCircle: {
     width: 88,
     height: 88,
     borderRadius: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#DDE4E2',
+    backgroundColor: '#DCEAF5',
     marginBottom: 8,
   },
+
   title: {
+    fontFamily: FONT,
     fontSize: 25,
     fontWeight: '800',
-    color: '#0B2236',
+    color: INK,
     textAlign: 'center',
   },
+
   subtitle: {
+    fontFamily: FONT,
     fontSize: 16,
     color: '#44525A',
     textAlign: 'center',
   },
+
   placeholder: {
     marginTop: 24,
     padding: 20,
     borderRadius: 18,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#DDE4E2',
+    borderWidth: 1.5,
+    borderColor: BORDER,
+    overflow: 'hidden',
   },
+
   placeholderText: {
+    fontFamily: FONT,
     fontSize: 16,
     color: '#44525A',
     textAlign: 'center',
