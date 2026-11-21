@@ -5,6 +5,7 @@ import {Alert, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, TextInp
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import PageBackground from '../components/PageBackground';
+import { modeLabel, useDataMode } from '../services/dataMode';
 import {
   BLUE,
   BORDER,
@@ -59,6 +60,7 @@ function SectionChip({ title }: { title: string }) {
 }
 
 export default function RemindersScreen() {
+  const mode = useDataMode();
   const router = useRouter();
   const params = useLocalSearchParams<{ medicationName?: string; dosage?: string }>();
 
@@ -371,7 +373,7 @@ export default function RemindersScreen() {
 
             <View style={styles.notice}>
               <Text style={styles.noticeText}>
-                Reminders are saved on this phone only. Always follow your provider’s instructions.
+                {modeLabel(mode)}. Reminders are saved for this account and mode on this phone only. No reminder is written to Epic.
               </Text>
             </View>
 

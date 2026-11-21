@@ -7,14 +7,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import PageBackground from '../components/PageBackground';
 import {
-  BLUE,
-  BORDER,
-  CARD_GRADIENT,
-  Card,
-  FONT,
-  GREEN,
-  INK,
-  shadow,
+    BLUE,
+    BORDER,
+    CARD_GRADIENT,
+    Card,
+    FONT,
+    GREEN,
+    INK,
+    shadow,
 } from '../components/ScreenParts';
 import { DataMode, getDataMode, selectDataMode } from '../services/dataMode';
 
@@ -75,7 +75,7 @@ export default function WelcomeScreen() {
                                         </View>
                                         <Text style={styles.choiceBody}>
                                             {value === 'sample'
-                                                ? 'Fictional records from our local database. No Epic sign-in needed.'
+                                                ? 'Fictional records bundled with this app. Sample records work without a local backend. No Epic sign-in needed.'
                                                 : 'Request records from Epic’s sandbox. Epic sign-in and internet access are required.'}
                                         </Text>
                                     </LinearGradient>

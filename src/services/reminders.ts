@@ -1,4 +1,5 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { accountStorage } from './accountStorage';
+import { getDataMode } from './dataMode';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
@@ -80,15 +81,20 @@ function normalizeTimes(times: string[]) {
 
 // Run storage updates one at a time so quick taps cannot overwrite each other - RD
 let queue: Promise<unknown> = Promise.resolve();
-function serialized<T>(task: () => Promise<T>): Promise<T> {
-    const next = queue.then(task, task);
+let scopedStorage: Awaited<ReturnType<typeof accountStorage>>;
+function serialized<T>(task: () => Promise<T>, needsAccount = true): Promise<T> {
+    const run = async () => {
+        if (needsAccount) scopedStorage = await accountStorage('reminders');
+        return task();
+    };
+    const next = queue.then(run, run);
     queue = next.catch(() => undefined);
     return next;
 }
 
 async function readJson<T>(key: string, fallback: T): Promise<T> {
     try {
-        const raw = await AsyncStorage.getItem(key);
+        const raw = await scopedStorage.getItem(key);
         return raw ? (JSON.parse(raw) as T) : fallback;
     } catch {
         return fallback;
@@ -106,7 +112,7 @@ async function readReminders(): Promise<Reminder[]> {
 }
 
 async function writeReminders(reminders: Reminder[]) {
-    await AsyncStorage.setItem(REMINDERS_KEY, JSON.stringify(reminders));
+    await scopedStorage.setItem(REMINDERS_KEY, JSON.stringify(reminders));
 }
 
 // ---------- Notifications ----------
@@ -180,10 +186,11 @@ async function syncNotifications(reminders: Reminder[]) {
     for (const reminder of reminders) {
         if (!reminder.enabled) continue;
         for (const time of reminder.times) {
+            await scopedStorage.getItem('__check_account__');
             const [hour, minute] = time.split(':').map(Number);
             await Notifications.scheduleNotificationAsync({
                 content: {
-                    title: 'Medication reminder',
+                    title: getDataMode() === 'sample' ? 'Sample medication reminder' : 'Medication reminder',
                     body: `Time to take ${reminder.medicationName}` +
                         (reminder.dosage ? ` (${reminder.dosage})` : '') + '.',
                     sound: 'default',
@@ -202,22 +209,24 @@ async function syncNotifications(reminders: Reminder[]) {
 }
 
 /** Sends a one-off test notification after a few seconds, to check alerts work - RD */
-export async function sendTestNotification(seconds = 10) {
-    if (!(await hasNotificationPermission())) return false;
-    await Notifications.scheduleNotificationAsync({
-        content: {
-            title: 'Test reminder',
-            body: 'Medication reminders are working on this phone.',
-            sound: 'default',
-            data: { kind: NOTIFICATION_KIND, test: true },
-        },
-        trigger: {
-            type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-            seconds,
-            channelId: CHANNEL_ID,
-        },
+export function sendTestNotification(seconds = 10) {
+    return serialized(async () => {
+        if (!(await hasNotificationPermission())) return false;
+        await Notifications.scheduleNotificationAsync({
+            content: {
+                title: 'Test reminder',
+                body: 'Medication reminders are working on this phone.',
+                sound: 'default',
+                data: { kind: NOTIFICATION_KIND, test: true },
+            },
+            trigger: {
+                type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+                seconds,
+                channelId: CHANNEL_ID,
+            },
+        });
+        return true;
     });
-    return true;
 }
 
 /** Re-schedules notifications from saved reminders (e.g. after permission is granted) - RD */
@@ -316,7 +325,16 @@ export function setDoseTaken(reminderId: string, time: string, taken: boolean, d
         const keep = Object.keys(next).sort().slice(-LOG_DAYS_KEPT);
         const trimmed = Object.fromEntries(keep.map((k) => [k, next[k]]));
 
-        await AsyncStorage.setItem(DOSE_LOG_KEY, JSON.stringify(trimmed));
+        await scopedStorage.setItem(DOSE_LOG_KEY, JSON.stringify(trimmed));
         return entries[key] ?? null;
     });
+}
+
+// Cancel only this app's medication notifications on account/mode transitions.
+export function suspendReminderNotifications() {
+    return serialized(async () => {
+        const requests = await Notifications.getAllScheduledNotificationsAsync();
+        await Promise.all(requests.filter(r => isReminderNotification(r.content.data))
+            .map(r => Notifications.cancelScheduledNotificationAsync(r.identifier)));
+    }, false);
 }
