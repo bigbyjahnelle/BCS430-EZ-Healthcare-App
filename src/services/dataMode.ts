@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react';
 export type DataMode = 'sample' | 'api';
-let mode: DataMode = 'api';
+let mode: DataMode = 'sample';
 let generation = 0;
 const listeners = new Set<() => void>();
 export const mobileSession: { token: string | null } = { token: null };

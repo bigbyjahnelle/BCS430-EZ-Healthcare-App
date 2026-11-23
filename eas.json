@@ -1,0 +1,10 @@
+{
+  "build": {
+    "preview": {
+      "environment": "preview",
+      "distribution": "internal",
+      "developmentClient": false,
+      "android": { "buildType": "apk" }
+    }
+  }
+}

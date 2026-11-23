@@ -20,16 +20,18 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import PageBackground from '../components/PageBackground';
 import { supabase } from '../services/supabase';
 
-// Colors (taken from the EZ logo)
 const BLUE = '#0B5394';
 const GREEN = '#00906F';
 const INK = '#0B2236';
 const BORDER = '#A9C2D6';
 const CARD_GRADIENT = ['#FFFFFF', '#F3F7F4'] as const;
 
-// true = serif text like the design picture, false = normal app font
 const USE_SERIF = true;
-const SERIF = Platform.select({ ios: 'Georgia', android: 'serif', default: 'serif' });
+const SERIF = Platform.select({
+  ios: 'Georgia',
+  android: 'serif',
+  default: 'serif',
+});
 const FONT = USE_SERIF ? SERIF : undefined;
 
 type FieldProps = TextInputProps & {
@@ -46,7 +48,13 @@ function Field({ label, icon, ...inputProps }: FieldProps) {
             colors={CARD_GRADIENT}
             style={[styles.field, focused && styles.fieldFocused]}
         >
-          <Ionicons name={icon} size={24} color={BLUE} accessible={false} />
+          <Ionicons
+              name={icon}
+              size={24}
+              color={BLUE}
+              accessible={false}
+          />
+
           <TextInput
               style={styles.input}
               placeholder={label}
@@ -63,9 +71,11 @@ function Field({ label, icon, ...inputProps }: FieldProps) {
 
 export default function LoginScreen() {
   const router = useRouter();
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [signingIn, setSigningIn] = useState(false);
+
   const submitting = useRef(false);
 
   async function signIn() {
@@ -74,7 +84,10 @@ export default function LoginScreen() {
     const trimmedEmail = email.trim();
 
     if (!trimmedEmail || !password) {
-      Alert.alert('Missing information', 'Enter your email and password.');
+      Alert.alert(
+          'Missing information',
+          'Enter your email and password.'
+      );
       return;
     }
 
@@ -90,20 +103,52 @@ export default function LoginScreen() {
     setSigningIn(true);
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: trimmedEmail,
-        password,
-      });
+      const { data, error } =
+          await supabase.auth.signInWithPassword({
+            email: trimmedEmail,
+            password,
+          });
 
       if (error || !data.session) {
-        Alert.alert('Could not sign in', error?.message ?? 'Please try again.');
+        if (error?.code === 'email_not_confirmed') {
+          Alert.alert(
+              'Verify your email',
+              'Enter the code from your signup email, or request a new code.',
+              [
+                {
+                  text: 'Cancel',
+                  style: 'cancel',
+                },
+                {
+                  text: 'Enter Code',
+                  onPress: () => {
+                    router.push({
+                      pathname: '/verify-email',
+                      params: {
+                        email: trimmedEmail,
+                      },
+                    });
+                  },
+                },
+              ]
+          );
+          return;
+        }
+
+        Alert.alert(
+            'Could not sign in',
+            error?.message ?? 'Please try again.'
+        );
         return;
       }
 
       setPassword('');
       router.replace('/welcome');
     } catch {
-      Alert.alert('Could not sign in', 'Check your internet connection and try again.');
+      Alert.alert(
+          'Could not sign in',
+          'Check your internet connection and try again.'
+      );
     } finally {
       submitting.current = false;
       setSigningIn(false);
@@ -112,11 +157,13 @@ export default function LoginScreen() {
 
   return (
       <PageBackground offsetY={35}>
-      {/* Android only: soft dark fade at the bottom so the white links are easy to read */}
         {Platform.OS === 'android' ? (
             <LinearGradient
                 pointerEvents="none"
-                colors={['rgba(7, 38, 70, 0)', 'rgba(7, 38, 70, 0.9)']}
+                colors={[
+                  'rgba(7, 38, 70, 0)',
+                  'rgba(7, 38, 70, 0.9)',
+                ]}
                 style={styles.scrim}
             />
         ) : null}
@@ -127,11 +174,14 @@ export default function LoginScreen() {
               behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           >
             <View style={styles.content}>
-              {/* The logo shrinks to fit, so nothing has to scroll */}
               <View style={styles.header}>
-                <Text style={styles.title} accessibilityRole="header">
+                <Text
+                    style={styles.title}
+                    accessibilityRole="header"
+                >
                   Login
                 </Text>
+
                 <Image
                     source={require('../../assets/images/ez-logo.png')}
                     style={styles.logo}
@@ -172,8 +222,13 @@ export default function LoginScreen() {
                       (pressed || signingIn) && { opacity: 0.85 },
                     ]}
                     accessibilityRole="button"
-                    accessibilityLabel={signingIn ? 'Signing in' : 'Login'}
-                    accessibilityState={{ disabled: signingIn, busy: signingIn }}
+                    accessibilityLabel={
+                      signingIn ? 'Signing in' : 'Login'
+                    }
+                    accessibilityState={{
+                      disabled: signingIn,
+                      busy: signingIn,
+                    }}
                     disabled={signingIn}
                     onPress={() => void signIn()}
                 >
@@ -184,17 +239,21 @@ export default function LoginScreen() {
               </View>
             </View>
 
-            {/* Links stay at the bottom of the screen */}
             <View style={styles.links}>
               <Pressable
                   style={styles.linkButton}
                   accessibilityRole="button"
                   disabled={signingIn}
-                  onPress={() =>
-                      Alert.alert('Forgot Password', 'Password recovery is not connected yet.')
-                  }
+                  onPress={() => {
+                    Alert.alert(
+                        'Forgot Password',
+                        'Password recovery is not connected yet.'
+                    );
+                  }}
               >
-                <Text style={styles.linkText}>Forgot password?</Text>
+                <Text style={styles.linkText}>
+                  Forgot password?
+                </Text>
               </Pressable>
 
               <Pressable
@@ -205,7 +264,9 @@ export default function LoginScreen() {
               >
                 <Text style={styles.linkText}>
                   Don't have an account?{' '}
-                  <Text style={styles.secondaryLinkAccent}>Sign Up</Text>
+                  <Text style={styles.secondaryLinkAccent}>
+                    Sign Up
+                  </Text>
                 </Text>
               </Pressable>
             </View>
@@ -224,7 +285,9 @@ const shadow = {
 } as const;
 
 const styles = StyleSheet.create({
-  screen: { flex: 1 },
+  screen: {
+    flex: 1,
+  },
   scrim: {
     position: 'absolute',
     left: 0,
@@ -258,8 +321,14 @@ const styles = StyleSheet.create({
     color: BLUE,
     textAlign: 'center',
   },
-  logo: { width: '100%', height: 210, flexShrink: 1 },  form: { gap: 14 },
-
+  logo: {
+    width: '100%',
+    height: 210,
+    flexShrink: 1,
+  },
+  form: {
+    gap: 14,
+  },
   fieldShadow: {
     borderRadius: 18,
     backgroundColor: '#F7F8F3',
@@ -276,7 +345,10 @@ const styles = StyleSheet.create({
     borderColor: BORDER,
     overflow: 'hidden',
   },
-  fieldFocused: { borderWidth: 2.5, borderColor: BLUE },
+  fieldFocused: {
+    borderWidth: 2.5,
+    borderColor: BLUE,
+  },
   input: {
     flex: 1,
     fontSize: 18,

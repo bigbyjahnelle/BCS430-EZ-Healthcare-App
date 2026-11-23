@@ -2,7 +2,7 @@ import { Ionicons } from '@react-native-vector-icons/ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import type { ComponentProps } from 'react';
+import type { ComponentProps, ComponentRef } from 'react';
 import {
   Alert,
   Animated,
@@ -78,25 +78,27 @@ type Service = {
   icon: IconName;
   tone: Tone;
   route?:
-    | '/medications'
-    | '/appointments'
-    | '/my-providers'
-    | '/my-health'
-    | '/test-results'
-    | '/reminders';
+      | '/medications'
+      | '/appointments'
+      | '/my-providers'
+      | '/my-health'
+      | '/test-results'
+      | '/reminders'
+      | '/insurance'
+      | '/messages'
+      | '/share';
 };
 
 const MAIN_SERVICES: Service[] = [
   { title: 'Medications', icon: 'medkit-outline', tone: 'blue', route: '/medications' },
   { title: 'Appointments', icon: 'calendar-outline', tone: 'green', route: '/appointments' },
-  { title: 'Messages', icon: 'mail-outline', tone: 'yellow' },
+  { title: 'Messages', icon: 'mail-outline', tone: 'yellow', route: '/messages' },
   { title: 'Test Results', icon: 'document-text-outline', tone: 'blue', route: '/test-results' },
 ];
 
 const MORE_SERVICES: Service[] = [
-  { title: 'My Health', icon: 'heart-outline', tone: 'green', route: '/my-health' },
-  { title: 'Insurance', icon: 'shield-checkmark-outline', tone: 'blue' },
-  { title: 'Share', icon: 'share-social-outline', tone: 'yellow' },
+  { title: 'Insurance', icon: 'shield-checkmark-outline', tone: 'blue', route: '/insurance' },
+  { title: 'Share', icon: 'share-social-outline', tone: 'yellow', route: '/share' },
   { title: 'My Providers', icon: 'location-outline', tone: 'green', route: '/my-providers' },
   { title: 'Reminders', icon: 'alarm-outline', tone: 'blue', route: '/reminders' },
 ];
@@ -138,11 +140,11 @@ function BottomWave() {
 
 // Big round corner button with its label underneath
 function CornerButton({
-  label,
-  icon,
-  onPress,
-  light = false,
-}: {
+                        label,
+                        icon,
+                        onPress,
+                        light = false,
+                      }: {
   label: string;
   icon: IconName;
   onPress: () => void;
@@ -172,7 +174,7 @@ export default function HomeScreen() {
   const mode = useDataMode();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
   const viewHeight = useRef(0);
   const [viewH, setViewH] = useState(0);
   const [scrolled, setScrolled] = useState(false);
@@ -257,7 +259,7 @@ export default function HomeScreen() {
           <CornerButton
               label="Profile"
               icon="person-outline"
-              onPress={() => router.push('/my-health')}
+              onPress={() => router.push('/profile')}
           />
         </View>
 
@@ -387,6 +389,10 @@ export default function HomeScreen() {
             </Pressable>
 
             {/* Main services */}
+            {mode === 'api' ? <Pressable accessibilityRole="button" onPress={() => router.push('/connect-epic')}
+                                         style={{ minHeight: 56, backgroundColor: '#FFFFFF', borderRadius: 18, padding: 14 }}>
+              <Text style={{ color: BLUE, fontSize: 20, fontWeight: '700', textAlign: 'center' }}>Connect / Manage Epic</Text>
+            </Pressable> : null}
             {renderServices(MAIN_SERVICES)}
 
 
@@ -474,7 +480,7 @@ export default function HomeScreen() {
                 label="Help"
                 icon="help-circle-outline"
                 light
-                onPress={() => showMessage('Help')}
+                onPress={() => router.push('/help')}
             />
           </View>
         </View>

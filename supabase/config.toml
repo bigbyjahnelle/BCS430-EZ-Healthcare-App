@@ -1,0 +1,5 @@
+project_id = "ez-healthcare"
+
+# Only Epic's callback is public. All other routes verify Supabase Auth in code.
+[functions.healthcare]
+verify_jwt = false

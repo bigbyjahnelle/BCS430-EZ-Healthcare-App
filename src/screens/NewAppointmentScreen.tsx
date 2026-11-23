@@ -1,228 +1,55 @@
-import { useState } from 'react';
-import {
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import PageBackground from '../components/PageBackground';
-import {
-  BLUE,
-  BORDER,
-  Card,
-  FONT,
-  GEAR_CLEARANCE,
-  INK,
-  PrimaryButton,
-  ScreenHeader,
-} from '../components/ScreenParts';
-
-function showMessage(feature: string) {
-  Alert.alert(feature, 'This feature is not connected yet.');
-}
-
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { Alert, Text, TextInput, View } from 'react-native';
+import { Card, PrimaryButton } from '../components/ScreenParts';
+import { RecordsPage, recordStyles } from '../components/RecordsPage';
+import { arr, obj, str } from '../data/fhir';
+import { useDataMode } from '../services/dataMode';
+import { getAppointment, saveSampleAppointment } from '../services/healthcare';
+import type { AppointmentInput } from '../services/healthcare';
+const blank: AppointmentInput = { provider: '', reason: '', date: '', time: '', notes: '', type: 'In-Person' };
 export default function NewAppointmentScreen() {
-  const [provider, setProvider] = useState('');
-  const [reason, setReason] = useState('');
-  const [type, setType] = useState<'In-Person' | 'Telehealth'>('In-Person');
-  const [date, setDate] = useState('');
-  const [time, setTime] = useState('');
-  const [notes, setNotes] = useState('');
-
-  return (
-    <PageBackground>
-      <SafeAreaView style={styles.screen}>
-        <KeyboardAvoidingView
-          style={styles.screen}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        >
-          <ScrollView
-            contentContainerStyle={styles.content}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
-            <ScreenHeader title="New Appointment" />
-
-            <Card style={styles.formCard}>
-              <View style={styles.field}>
-                <Text style={styles.fieldLabel}>Provider</Text>
-                <TextInput
-                  style={styles.fieldInput}
-                  placeholder="Select a provider…"
-                  placeholderTextColor="#6F7E88"
-                  value={provider}
-                  onChangeText={setProvider}
-                />
-              </View>
-
-              <View style={styles.field}>
-                <Text style={styles.fieldLabel}>Reason for Visit</Text>
-                <TextInput
-                  style={styles.fieldInput}
-                  placeholder="e.g. Annual check-up"
-                  placeholderTextColor="#6F7E88"
-                  value={reason}
-                  onChangeText={setReason}
-                />
-              </View>
-
-              <View style={styles.field}>
-                <Text style={styles.fieldLabel}>Appointment Type</Text>
-                <View style={styles.typeRow}>
-                  {(['In-Person', 'Telehealth'] as const).map((option) => {
-                    const selected = type === option;
-                    return (
-                      <Pressable
-                        key={option}
-                        style={[styles.typePill, selected && styles.typePillSelected]}
-                        accessibilityRole="button"
-                        accessibilityState={{ selected }}
-                        onPress={() => setType(option)}
-                      >
-                        <Text
-                          style={[styles.typePillText, selected && styles.typePillTextSelected]}
-                        >
-                          {option}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </View>
-
-              <View style={styles.twoCol}>
-                <View style={[styles.field, styles.col]}>
-                  <Text style={styles.fieldLabel}>Date</Text>
-                  <TextInput
-                    style={styles.fieldInput}
-                    placeholder="Select a date…"
-                    placeholderTextColor="#6F7E88"
-                    value={date}
-                    onChangeText={setDate}
-                  />
-                </View>
-
-                <View style={[styles.field, styles.col]}>
-                  <Text style={styles.fieldLabel}>Time</Text>
-                  <TextInput
-                    style={styles.fieldInput}
-                    placeholder="Select a time…"
-                    placeholderTextColor="#6F7E88"
-                    value={time}
-                    onChangeText={setTime}
-                  />
-                </View>
-              </View>
-
-              <View style={styles.field}>
-                <Text style={styles.fieldLabel}>Notes (optional)</Text>
-                <TextInput
-                  style={styles.fieldInput}
-                  placeholder="Add any notes for your provider"
-                  placeholderTextColor="#6F7E88"
-                  value={notes}
-                  onChangeText={setNotes}
-                />
-              </View>
-            </Card>
-
-            <PrimaryButton
-              label="Confirm Appointment"
-              onPress={() => showMessage('Confirm Appointment')}
-            />
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
-    </PageBackground>
-  );
+  const { id } = useLocalSearchParams<{ id?: string }>(), router = useRouter(), mode = useDataMode();
+  const [form, setForm] = useState<AppointmentInput>(blank), [saving, setSaving] = useState(false), [loading, setLoading] = useState(Boolean(id)), [error, setError] = useState('');
+  useEffect(() => {
+    if (!id || mode !== 'sample') return;
+    let active = true;
+    getAppointment(id).then(a => {
+      const d = new Date(str(a.start)), p = arr(a.participant).map(x => obj(obj(x).actor)).find(x => str(x.reference).startsWith('Practitioner/'));
+      if (active) setForm({ provider: str(p?.display), reason: str(a.description), notes: str(a.comment), type: str(obj(a.appointmentType).text) || 'In-Person',
+        date: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`,
+        time: `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` });
+    }).catch(e => { if (active) setError(e instanceof Error ? e.message : 'Could not load appointment.'); }).finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [id, mode]);
+  async function save() {
+    if (mode !== 'sample' || saving || loading) return;
+    setSaving(true); setError('');
+    try {
+      const nextId = await saveSampleAppointment(form, id);
+      Alert.alert('Sample appointment saved', 'No real appointment was booked and no clinic was contacted.');
+      router.replace({ pathname: '/appointment-detail', params: { id: nextId } });
+    } catch (e) { setError(e instanceof Error ? e.message : 'Could not save appointment.'); }
+    finally { setSaving(false); }
+  }
+  const field = (key: keyof AppointmentInput, label: string, placeholder: string) => <View style={{ gap: 6 }} key={key}>
+    <Text style={recordStyles.body}>{label}</Text>
+    <TextInput style={recordStyles.input} accessibilityLabel={label} value={form[key]} placeholder={placeholder}
+               editable={!saving && !loading} onChangeText={value => setForm(v => ({ ...v, [key]: value }))} maxLength={key === 'notes' ? 1000 : 200} />
+  </View>;
+  return <RecordsPage title={id ? 'Reschedule' : 'New Appointment'}>
+    {mode === 'sample' ? <>
+      <Text style={recordStyles.warning}>Sample booking simulation only. Dates and times use this device's local timezone.</Text>
+      <Card><View style={{ gap: 14 }}>
+        {field('provider', 'Fictional provider', 'e.g. Dr. Avery Sample')}
+        {field('reason', 'Reason for visit', 'e.g. Sample follow-up')}
+        {field('date', 'Date — YYYY-MM-DD', '2026-12-01')}
+        {field('time', 'Time — 24-hour HH:MM', '10:30')}
+        {field('notes', 'Notes (optional)', 'Fictional notes only')}
+        <PrimaryButton label={form.type} onPress={() => setForm(v => ({ ...v, type: v.type === 'In-Person' ? 'Telehealth' : 'In-Person' }))} disabled={saving || loading} />
+      </View></Card>
+      {error ? <Text style={recordStyles.error} accessibilityRole="alert">{error}</Text> : null}
+      <PrimaryButton label={loading ? 'Loading…' : saving ? 'Saving…' : 'Save Sample Appointment'} onPress={() => void save()} disabled={saving || loading} />
+    </> : <Text style={recordStyles.warning}>Real Epic booking is not implemented. Return to Appointments to view the API records.</Text>}
+  </RecordsPage>;
 }
-
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-  },
-
-  content: {
-    flexGrow: 1,
-    width: '100%',
-    maxWidth: 540,
-    alignSelf: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: GEAR_CLEARANCE,
-    gap: 16,
-  },
-
-  formCard: {
-    gap: 14,
-  },
-
-  field: {
-    gap: 6,
-  },
-
-  fieldLabel: {
-    fontFamily: FONT,
-    fontSize: 18,
-    fontWeight: '800',
-    color: INK,
-  },
-
-  fieldInput: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: BORDER,
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 18,
-    color: INK,
-  },
-
-  twoCol: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-
-  col: {
-    flex: 1,
-  },
-
-  typeRow: {
-    flexDirection: 'row',
-    gap: 8,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: BORDER,
-    borderRadius: 16,
-    padding: 4,
-  },
-
-  typePill: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 52,
-    borderRadius: 12,
-  },
-
-  typePillSelected: {
-    backgroundColor: BLUE,
-  },
-
-  typePillText: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: INK,
-  },
-
-  typePillTextSelected: {
-    color: '#FFFFFF',
-  },
-});
