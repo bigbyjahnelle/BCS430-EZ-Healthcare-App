@@ -133,6 +133,11 @@ export default function AccessibilityScreen() {
   const [isGridLayout, setIsGridLayout] = useState(true);
 
   const openCategory = (category: Category) => {
+    // Voice & Communication opens its own settings page instead of the general category page - RD
+    if (category.key === 'voice') {
+      router.push('/voice-settings');
+      return;
+    }
     router.push({
       pathname: '/accessibility/[category]',
       params: {
