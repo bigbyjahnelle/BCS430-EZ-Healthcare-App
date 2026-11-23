@@ -7,6 +7,8 @@ export type Row = { label: string; value: string };
 export type Item = {
   id: string; title: string; subtitle?: string; status?: string;
   lines: Row[]; flag?: 'normal' | 'abnormal' | 'critical' | 'unknown';
+  // Original ISO date of the record, used by Ask EZ to read only recent or upcoming records - RD
+  date?: string;
 };
 export type Records = {
   items: Item[]; source: string; fetchedAt: string; warnings: string[];
@@ -126,7 +128,7 @@ export function normalize(section: Section, input: unknown, patientId: string, b
       const participants = arr(r.participant).map(x => obj(obj(x).actor));
       const provider = participants.find(x => /(?:^|\/)Practitioner(?:Role)?\//.test(str(x.reference)));
       const location = participants.find(x => /(?:^|\/)Location\//.test(str(x.reference)));
-      items.push({ id, title: str(provider?.display) || 'Provider name not provided',
+      items.push({ id, title: str(provider?.display) || 'Provider name not provided', date: str(r.start) || undefined,
         subtitle: arr(r.specialty).map(concept).filter(Boolean).join(', '), status: str(r.status), lines: [
           row('Start', displayDate(r.start)), row('End', displayDate(r.end)),
           row('Location', location?.display), row('Visit', r.description),
@@ -144,14 +146,14 @@ export function normalize(section: Section, input: unknown, patientId: string, b
       const rates = arr(dose.doseAndRate).map(obj);
       const rate = rates.find(x => arr(obj(x.type).coding).some(c => obj(c).code === 'ordered')) ?? rates[0];
       items.push({ id, title: str(obj(r.medicationReference).display) || concept(r.medicationCodeableConcept) || 'Medication name not provided',
-        status: str(r.status), lines: [row('Dose', quantity(obj(rate).doseQuantity)), row('Frequency', concept(obj(dose.timing).code)),
+        status: str(r.status), date: str(r.authoredOn) || undefined, lines: [row('Dose', quantity(obj(rate).doseQuantity)), row('Frequency', concept(obj(dose.timing).code)),
           row('Instructions', str(dose.patientInstruction) || str(dose.text)), row('Ordered', displayDate(r.authoredOn))] });
     } else if (section === 'providers') {
       items.push({ id, title: humanName(r.name) || 'Provider name not provided',
         subtitle: 'Linked prescribing provider', lines: [row('Identifier', id),
           ...arr(r.telecom).map(x => row(str(obj(x).system) || 'Contact', obj(x).value))] });
     } else if (section === 'messages') {
-      items.push({ id, title: str(obj(r.sender).display) || 'Care team', status: str(r.status), lines: [
+      items.push({ id, title: str(obj(r.sender).display) || 'Care team', status: str(r.status), date: str(r.sent) || undefined, lines: [
           row('Date', displayDate(r.sent)), ...arr(r.payload).map(x => row('Message', obj(x).contentString))] });
     } else {
       const category = section === 'vitals' ? 'vital-signs' : 'laboratory';
@@ -171,6 +173,7 @@ export function normalize(section: Section, input: unknown, patientId: string, b
       const componentFlags = parts.map(interpretation);
       const flag = componentFlags.includes('critical') ? 'critical' : componentFlags.includes('abnormal') ? 'abnormal' : ownFlag;
       items.push({ id, title: concept(r.code) || 'Observation', status: str(r.status), lines: details,
+        date: str(r.effectiveDateTime) || str(obj(r.effectivePeriod).start) || undefined,
         flag: section === 'test-results' ? flag : undefined });
     }
   }

@@ -1,9 +1,14 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { StyleProp, ViewStyle } from 'react-native';
+
+import { useScreenTitle } from '../services/screenSummary';
+import { stopSpeaking, useIsReading, useVoiceSettings } from '../services/voiceSettings';
+import AskEzPanel from './AskEzPanel';
 
 // Shared look for the inner pages (same colors, fonts and buttons as Home)
 
@@ -37,6 +42,12 @@ export const shadow = {
 // Top row: big Back button on the left + page title centered on the button circle
 export function ScreenHeader({ title }: { title: string }) {
   const router = useRouter();
+  const { commandsEnabled } = useVoiceSettings();
+  const reading = useIsReading();
+  const [askOpen, setAskOpen] = useState(false);
+
+  // Lets Ask EZ say which screen this is when asked to read it - RD
+  useScreenTitle(title);
 
   return (
       <View style={styles.topRow}>
@@ -69,7 +80,47 @@ export function ScreenHeader({ title }: { title: string }) {
           </Text>
         </View>
 
-        <View style={styles.cornerSpacer} />
+        {/* Ask EZ on every screen, in the space that balanced the Back button - RD */}
+        {/* While a screen is being read aloud, the same spot becomes a Stop button - RD */}
+        {reading ? (
+            <Pressable
+                style={styles.cornerButton}
+                accessibilityRole="button"
+                accessibilityLabel="Stop reading"
+                onPress={stopSpeaking}
+            >
+              <LinearGradient colors={CARD_GRADIENT} style={[styles.cornerCircle, styles.stopCircle]}>
+                <Ionicons
+                    name="stop"
+                    size={34}
+                    color="#9A1825"
+                    accessible={false}
+                />
+              </LinearGradient>
+              <Text style={styles.cornerLabel}>Stop</Text>
+            </Pressable>
+        ) : commandsEnabled ? (
+            <Pressable
+                style={styles.cornerButton}
+                accessibilityRole="button"
+                accessibilityLabel="Ask EZ. Tap to speak."
+                onPress={() => setAskOpen(true)}
+            >
+              <LinearGradient colors={CARD_GRADIENT} style={styles.cornerCircle}>
+                <Ionicons
+                    name="mic-outline"
+                    size={36}
+                    color={BLUE}
+                    accessible={false}
+                />
+              </LinearGradient>
+              <Text style={styles.cornerLabel}>Ask EZ</Text>
+            </Pressable>
+        ) : (
+            <View style={styles.cornerSpacer} />
+        )}
+
+        <AskEzPanel visible={askOpen} onClose={() => setAskOpen(false)} />
       </View>
   );
 }
@@ -143,6 +194,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#C9D6DD',
     ...shadow,
+  },
+
+  // Red ring so the Stop button stands out from Back and Ask EZ - RD
+  stopCircle: {
+    borderWidth: 3,
+    borderColor: '#9A1825',
   },
 
   cornerLabel: {

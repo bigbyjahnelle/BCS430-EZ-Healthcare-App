@@ -24,6 +24,16 @@
           "color": "#17618E"
         }
       ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "EZ Healthcare uses the microphone so you can control the app with your voice.",
+          "speechRecognitionPermission": "EZ Healthcare uses speech recognition to understand voice commands like “open my medications”.",
+          "androidSpeechServicePackages": [
+            "com.google.android.googlequicksearchbox"
+          ]
+        }
+      ],
       "expo-splash-screen"
     ],
     "android": {

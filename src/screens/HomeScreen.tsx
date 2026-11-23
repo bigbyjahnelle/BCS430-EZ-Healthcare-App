@@ -25,8 +25,11 @@ import Svg, {
   RadialGradient,
   Stop,
 } from 'react-native-svg';
+import AskEzPanel from '../components/AskEzPanel';
 import PageBackground from '../components/PageBackground';
 import { modeLabel, useDataMode } from '../services/dataMode';
+import { useScreenSummary, useStopReadingOnLeave } from '../services/screenSummary';
+import { stopSpeaking, useIsReading, useVoiceSettings } from '../services/voiceSettings';
 import { logout } from '../services/logout';
 
 // ---------- Colors (taken from the EZ logo) ----------
@@ -173,6 +176,29 @@ function CornerButton({
 export default function HomeScreen() {
   const mode = useDataMode();
   const router = useRouter();
+  const [askOpen, setAskOpen] = useState(false);
+  const { commandsEnabled } = useVoiceSettings();
+  const reading = useIsReading();
+  useStopReadingOnLeave();
+
+  // What Ask EZ reads for "read this screen" - RD
+  const openable = [...MAIN_SERVICES, ...MORE_SERVICES].filter((service) => service.route).map((service) => service.title);
+  useScreenSummary(
+      `This is the Home screen. You can open ${openable.slice(0, -1).join(', ')} and ${openable[openable.length - 1]}. ` +
+      'Tap Ask EZ to speak a command.',
+  );
+
+  // Ask EZ card: explain how to turn voice back on instead of doing nothing - RD
+  const openAskEz = () => {
+    if (commandsEnabled) {
+      setAskOpen(true);
+      return;
+    }
+    Alert.alert('Voice commands are off', 'You can turn them on in Settings, under Voice & Communication.', [
+      { text: 'Not Now', style: 'cancel' },
+      { text: 'Open Voice Settings', onPress: () => router.push('/voice-settings') },
+    ]);
+  };
   const insets = useSafeAreaInsets();
   const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
   const viewHeight = useRef(0);
@@ -321,7 +347,7 @@ export default function HomeScreen() {
                 style={styles.cardShadow}
                 accessibilityRole="button"
                 accessibilityLabel="Ask EZ. Tap to speak."
-                onPress={() => showMessage('Ask EZ')}
+                onPress={openAskEz}
             >
               <LinearGradient colors={CARD_GRADIENT} style={styles.askCard}>
                 <Text style={styles.heading}>
@@ -378,6 +404,19 @@ export default function HomeScreen() {
                 </LinearGradient>
               </LinearGradient>
             </Pressable>
+
+            {/* Shown only while Home is being read aloud - RD */}
+            {reading ? (
+                <Pressable
+                    style={styles.stopReading}
+                    accessibilityRole="button"
+                    accessibilityLabel="Stop reading"
+                    onPress={stopSpeaking}
+                >
+                  <Ionicons name="stop" size={26} color="#FFFFFF" accessible={false} />
+                  <Text style={styles.stopReadingText}>Stop Reading</Text>
+                </Pressable>
+            ) : null}
 
             {/* Sample Data / API mode (opens the Welcome screen) */}
             <Pressable
@@ -484,6 +523,8 @@ export default function HomeScreen() {
             />
           </View>
         </View>
+
+        <AskEzPanel visible={askOpen} onClose={() => setAskOpen(false)} />
       </PageBackground>
   );
 }
@@ -621,6 +662,26 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FFFFFF',
     textAlign: 'center',
+  },
+
+  // Stop Reading button under the Ask EZ card - RD
+  stopReading: {
+    minHeight: 56,
+    flexDirection: 'row',
+    gap: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    borderRadius: 18,
+    backgroundColor: '#9A1825',
+    ...shadow,
+  },
+
+  stopReadingText: {
+    fontFamily: FONT,
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
 
   // Cards

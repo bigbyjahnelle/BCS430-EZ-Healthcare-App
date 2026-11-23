@@ -22,4 +22,4 @@ supabase/functions/.env
 *.log
 coverage/
 *.tsbuildinfo
-!.gitkeep
+!.gitkeep.DS_Store

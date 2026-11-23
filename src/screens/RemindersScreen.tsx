@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import PageBackground from '../components/PageBackground';
 import { modeLabel, useDataMode } from '../services/dataMode';
+import { spokenList, useScreenSummary } from '../services/screenSummary';
 import {
   BLUE,
   BORDER,
@@ -79,6 +80,31 @@ export default function RemindersScreen() {
   const [customHour, setCustomHour] = useState(() => new Date().getHours() % 12 || 12);
   const [customMinute, setCustomMinute] = useState(() => new Date().getMinutes());
   const [customPeriod, setCustomPeriod] = useState<'AM' | 'PM'>(() => (new Date().getHours() < 12 ? 'AM' : 'PM'));
+
+  // What Ask EZ reads for "read this screen": each reminder's times and when it is next due - RD
+  const activeReminders = reminders.filter((reminder) => reminder.enabled);
+  const offCount = reminders.length - activeReminders.length;
+  const takenCount = doses.filter((dose) => dose.takenAt).length;
+  const missed = doses.filter((dose) => !dose.takenAt && dose.time < currentTime);
+  const describeReminder = (reminder: Reminder) => {
+    const name = reminder.dosage ? `${reminder.medicationName}, ${reminder.dosage}` : reminder.medicationName;
+    const dueLater = doses.find((dose) => dose.reminderId === reminder.id && !dose.takenAt && dose.time >= currentTime);
+    const next = dueLater ? `today at ${formatTime(dueLater.time)}` : `tomorrow at ${formatTime(reminder.times[0])}`;
+    return `${name}: every day at ${spokenList(reminder.times.map(formatTime), reminder.times.length)}. Next dose ${next}.`;
+  };
+  useScreenSummary(draft
+      ? `You are ${draft.id ? 'editing' : 'adding'} a reminder${draft.medicationName ? ` for ${draft.medicationName}` : ''}.`
+      : reminders.length === 0
+          ? 'You have no medication reminders yet.'
+          : [
+              `You have ${activeReminders.length} active medication ${activeReminders.length === 1 ? 'reminder' : 'reminders'}.`,
+              ...activeReminders.map(describeReminder),
+              missed.length
+                  ? `Not taken yet from earlier today: ${spokenList(missed.map((dose) => `${dose.medicationName} at ${formatTime(dose.time)}`), missed.length)}.`
+                  : '',
+              doses.length ? `Today, ${takenCount} of ${doses.length} ${doses.length === 1 ? 'dose is' : 'doses are'} taken.` : '',
+              offCount ? `${offCount} ${offCount === 1 ? 'reminder is' : 'reminders are'} turned off.` : '',
+            ].filter(Boolean).join(' '));
 
   const refresh = useCallback(async () => {
     const [savedReminders, todayDoses, permission] = await Promise.all([

@@ -1,5 +1,5 @@
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -8,16 +8,33 @@ import { BLUE, Card, FONT, GEAR_CLEARANCE, INK, PrimaryButton, ScreenHeader } fr
 import type { Item, Records, Section } from '../data/fhir';
 import { useDataMode, modeLabel } from '../services/dataMode';
 import { HealthcareError, loadSection } from '../services/healthcare';
+import { describeSection } from '../services/recordReadout';
+import { useScreenSummary } from '../services/screenSummary';
+import { useVoiceSettings } from '../services/voiceSettings';
+
+// Each SectionPanel reports its "read this screen" text to the RecordsPage around it - RD
+const ReadoutContext = createContext<((key: string, text: string | null) => void) | null>(null);
 
 export function RecordsPage({ title, children }: { title: string; children: ReactNode }) {
     const mode = useDataMode();
-    return <PageBackground><SafeAreaView style={{ flex: 1 }}>
+
+    // Sections are read in the order they first appear on the screen - RD
+    const [parts, setParts] = useState<Record<string, string | null>>({});
+    const order = useRef<string[]>([]);
+    const report = useCallback((key: string, text: string | null) => {
+        if (!order.current.includes(key)) order.current.push(key);
+        setParts((current) => (current[key] === text ? current : { ...current, [key]: text }));
+    }, []);
+    const spoken = order.current.map((key) => parts[key]).filter(Boolean).join(' ');
+    useScreenSummary(spoken ? `${title}. ${spoken}` : null);
+
+    return <ReadoutContext.Provider value={report}><PageBackground><SafeAreaView style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={recordStyles.page} keyboardShouldPersistTaps="handled">
             <ScreenHeader title={title} />
             <Card><Text style={recordStyles.body}>{modeLabel(mode)} — test data only.</Text></Card>
             {children}
         </ScrollView>
-    </SafeAreaView></PageBackground>;
+    </SafeAreaView></PageBackground></ReadoutContext.Provider>;
 }
 export function RecordCard({ item, onPress }: { item: Item; onPress?: () => void }) {
     const flag = item.flag;
@@ -55,6 +72,15 @@ export function SectionPanel({ section, heading, revision = 0, onItem, renderAct
         }).finally(() => { clearTimeout(timeout); if (active) setLoading(false); });
         return () => { active = false; clearTimeout(timeout); controller.abort(); };
     }, [section, mode, retry, revision]));
+
+    // Tell the page what to read for this section whenever it changes - RD
+    const report = useContext(ReadoutContext);
+    const voice = useVoiceSettings();
+    useEffect(() => {
+        report?.(section, describeSection(section, heading, { loading, error, data }, voice));
+    }, [report, section, heading, loading, error, data, voice]);
+    useEffect(() => () => report?.(section, null), [report, section]);
+
     return <View style={{ gap: 14 }}>
         {heading ? <Text style={recordStyles.heading} accessibilityRole="header">{heading}</Text> : null}
         {loading ? <ActivityIndicator size="large" accessibilityLabel={`Loading ${heading || section}`} /> : null}
