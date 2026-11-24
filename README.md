@@ -1,569 +1,542 @@
 # EZ Healthcare
 
-EZ Healthcare is a senior-project mobile prototype designed to make healthcare information easier to navigate for older adults and people with disabilities. The interface emphasizes clear labels, large controls, and straightforward navigation.
+EZ Healthcare is a BCS 430 senior-project mobile prototype designed to make healthcare information easier to navigate for older adults and people with accessibility needs. The interface emphasizes large controls, clear labels, simple navigation, and optional voice assistance.
 
-This is a development prototype, not a production healthcare application. Use fictional local records and Epic sandbox accounts only.
+**Demonstration only. Use fictional sample records and Epic sandbox accounts—not real patient information. This app does not provide medical advice, diagnosis, treatment, or emergency services.**
 
-## Current Functionality
+## Current Demo Plan
 
-The Welcome screen lets you choose **Sample Data Mode** or **API Mode**. Both choices open the same Home screen and use the same record-screen layouts.
+The final presentation and shared Android APK are intended to use **Sample Data Mode**. API Mode remains available for Epic sandbox integration testing, but Epic authorization and some record requests have experienced errors during development. Do not depend on API Mode for an uninterrupted presentation.
+
+Both modes use the same screens and layouts. Sample Data Mode is an explicit choice; API errors never silently substitute sample records.
+
+The intended flow is:
+
+1. Open EZ Healthcare and sign in or create an account.
+2. Verify the signup email when required.
+3. Select **Sample Data Mode** or **API Mode** and tap **Continue**.
+4. Explore the shared Home screen and services.
+
+**Sample records do not require a local backend or PostgreSQL installation. Supabase account signup/login still requires internet access.** Voice recognition may also need internet and an available device speech service.
+
+## Contents
+
+- [Features and limitations](#features-and-limitations)
+- [Architecture and data storage](#architecture-and-data-storage)
+- [Install and run for development](#install-and-run-for-development)
+- [Use the app](#use-the-app)
+- [Build and share the Android APK](#build-and-share-the-android-apk)
+- [Hosted Supabase and Epic setup](#hosted-supabase-and-epic-setup)
+- [Troubleshooting](#troubleshooting)
+- [Team workflow](#team-workflow)
+- [Validation checklist](#validation-checklist)
+- [Key files](#key-files)
+
+## Features and Limitations
 
 | Feature | Sample Data Mode | API Mode |
 | --- | --- | --- |
-| Medication Records | Fictional medication orders from PostgreSQL | Authorized Epic sandbox medication orders |
-| My Providers | Fictional prescribing providers from PostgreSQL | Providers referenced by retrieved medication orders; details depend on access |
-| My Health / My Vitals | Fictional vital signs from PostgreSQL | Epic vital-sign lookup; may return errors or no results |
-| Messages, Test Results, Insurance, Share | Not implemented in this update | Not implemented in this update |
+| Login and signup | Supabase Auth account | Same Supabase Auth account; Epic authorization is separate |
+| Medication Records | Bundled fictional medication orders | Requests authorized Epic sandbox medication orders |
+| Appointments | View, create, edit/reschedule, and cancel fictional appointments locally | Requests Epic appointments; booking, editing, and cancellation are not implemented |
+| Profile | Fictional patient demographics and vital signs | Requests Epic Patient and vital-sign Observation resources |
+| My Providers | Fictional providers | Prescribing providers referenced by medication orders; not a complete provider directory |
+| Test Results | Fictional laboratory results with status colors and labels | Requests laboratory Observations; availability depends on Epic access and returned data |
+| Insurance | Fictional insurance details | Requests Coverage resources; endpoint access and available records must be verified |
+| Messages | Simulated conversation with locally saved practice messages | MyChart inbox/send integration is not configured; the app reports that it is unsupported |
+| Share | Preview selected fictional records, then open the device share menu | Preview selected successfully retrieved records, then open the same share menu |
+| Reminders | Locally saved schedules, dose tracking, and device notifications | Same local reminder tools; not synchronized with Epic |
+| Help | User-focused instructions | Same help screen with mode-specific explanations |
+| Ask EZ | Voice or typed navigation commands and screen readouts | Same command system; it does not bypass login or Epic permissions |
 
-The appointment feature is being developed separately. The Home button in the source used for this update is still a placeholder. Check for newer team changes before replacing files.
+An implemented request path does not guarantee that a sandbox account has records or that Epic will authorize every request.
 
-Ask EZ voice functionality, medication reminders, and EZ Healthcare account authentication remain separate work items. The existing login/signup screens do not yet provide working account authentication.
+### Ask EZ Voice Prototype
 
-API Mode never substitutes sample records when an Epic request fails. Completed medication orders retain their status and are not presented as active prescriptions.
+Tap **Ask EZ** on Home or an available microphone button to speak. Allow microphone access when prompted. A typed-command option is also available.
 
-## Architecture
+Example commands include:
 
-| Component | Purpose |
+- “Open my medications.”
+- “My appointments.”
+- “Show my reminders.”
+- “My health.”
+- “Test results.”
+- “Read this screen.”
+- “Voice settings.”
+- “Go home.”
+- “Go back.”
+
+Ask EZ uses speech recognition followed by keyword/phrase matching. It is **not a generative-AI medical assistant**. Commands navigate or read screen summaries; they do not create appointments, send messages, or save reminders automatically.
+
+Open **Settings → Voice & Communication** to change voice-command visibility, spoken confirmations, speaking speed, and the appointment/result readout windows. “Read this screen” reads the available app summary, not necessarily every displayed item.
+
+Other accessibility categories currently contain placeholder pages. Do not describe every accessibility setting as implemented until the team's changes are merged and tested.
+
+## Architecture and Data Storage
+
+| Component | Responsibility |
 | --- | --- |
-| React Native, Expo, TypeScript, Expo Router | Mobile screens and navigation |
-| Android Studio emulator | Local virtual Android device |
-| Node.js and Express | Local API, Epic authorization, and data requests |
-| PostgreSQL | Local application tables and fictional sample fixtures |
-| Epic FHIR sandbox | Authorized synthetic healthcare records |
+| React Native, Expo SDK 58, TypeScript, Expo Router | Mobile interface and navigation |
+| Supabase Auth | EZ Healthcare account signup, verification, and login |
+| Bundled sample resources | Fictional FHIR-shaped records shipped inside the app |
+| AsyncStorage | Local sample edits, reminders, dose logs, and voice preferences |
+| Supabase Edge Function `healthcare` | Hosted Epic authorization and sandbox record requests |
+| Supabase Postgres | Restricted Epic authorization-attempt, connection, and rate-limit tables |
+| Epic FHIR R4 sandbox | Authorized synthetic healthcare records |
+| Android speech services and Expo speech modules | Voice recognition and spoken output |
 
-The mobile app calls Express; it does not connect directly to PostgreSQL.
+The current mobile flow does **not** require the older Express server in `backend/`, a `localhost:3001` connection, or the older local PostgreSQL seed scripts in `database/`. Those files remain as legacy development work; do not delete teammates' files as part of setup.
 
-The current Epic medication/provider snapshot and mobile sessions are stored in backend memory, not automatically persisted to PostgreSQL. Vitals are requested through their own backend route.
+### What Is Saved Where?
 
-## Requirements
+- **Accounts:** Supabase Auth manages credentials. The app does not save passwords in a custom local users table.
+- **Sample records:** Initial records are bundled with the app. Every new tester starts with the same fictional patient data; it is not their personal medical history.
+- **Sample appointments and messages:** Edits are saved locally, scoped to the signed-in user and selected mode.
+- **Reminders and dose logs:** Saved locally per user and mode. Notifications are scheduled on the device, not through an Epic or cloud push service.
+- **Voice settings:** Saved locally for the app installation; the current voice-settings storage is not account-specific.
+- **Epic connection:** The hosted backend stores user-bound authorization information, including encrypted access tokens. Retrieved records are not automatically copied into a longitudinal Supabase health-record database.
 
-- The team's current GitHub branch, including matching lockfiles.
-- Node.js 24 LTS and npm.
-- PostgreSQL running locally.
-- Android Studio, Android SDK tools, an emulator, and a compatible Java Development Kit.
-- An editor such as IntelliJ IDEA or VS Code.
-- The team's non-production Epic app configuration for backend startup.
+Local changes do not sync to another phone or emulator. They normally survive app restarts and logout/login on the same installation, but uninstalling the app or clearing its storage removes them. Logging out suspends the app's medication reminder notifications; signing back in reschedules from saved reminders when permitted.
 
-The main tested workflow is a local Android development build on macOS. Windows instructions are included but should be rehearsed on the target machine. iOS setup is not covered by this guide.
+The current Supabase client uses `persistSession: false`, so the sign-in session is not intentionally saved across fresh app launches. This does not delete saved local sample edits.
 
-**Use the EZ Healthcare development build, not Expo Go, for the custom Epic return link.**
+## Install and Run for Development
 
-## 1. Get the Project
+These instructions are for teammates working from source. APK testers can skip to [Build and Share the Android APK](#build-and-share-the-android-apk).
 
-Clone the repository using its GitHub URL, or download and extract the team's branch ZIP. Open the project folder in your editor.
+Android is the presentation target. The main development workflow is macOS with an Android emulator. Windows setup should be rehearsed on the actual teammate's computer. iOS is not covered here.
 
-The **project root** contains:
+### 1. Install Prerequisites
 
-- `package.json`
-- `src`
-- `backend`
-- `database`
+- Node.js and npm. Node.js 24 is the team's development baseline; `package.json` requires Node.js 22.13.0 or newer.
+- Git and an editor such as IntelliJ IDEA or VS Code.
+- Android Studio, Android SDK Platform-Tools, Android Emulator, and the SDK/build tools required by the project.
+- A compatible JDK. The team's local Android build setup uses JDK 17.
+- A running Android emulator or a connected Android phone with USB debugging enabled.
 
-In IntelliJ, open **View → Tool Windows → Terminal**.
+Use [Expo's Android setup guide](https://docs.expo.dev/workflow/android-studio-emulator/) and the Android SDK Location shown in Android Studio. Do not copy another teammate's username into local paths.
 
-Commands below assume you are in the specified folder. Do not run Expo from `backend`.
-
-Never replace an entire source folder with a partial update ZIP. Copy changed files to their matching paths and preserve teammates' work.
-
-## 2. Install Dependencies
-
-Install Node.js from [Node.js downloads](https://nodejs.org/en/download).
-
-Reopen your terminal, then check:
+### 2. Clone and Install
 
 ```sh
-node --version
-npm --version
-```
-
-From the project root, run these commands one at a time:
-
-```sh
+git clone https://github.com/bigbyjahnelle/BCS430-EZ-Healthcare-App.git
+cd BCS430-EZ-Healthcare-App
 npm ci
-cd backend
-npm ci
-cd ..
 ```
 
-This installs frontend and backend dependencies separately.
+The project root contains `package.json`, `app.json`, `src/`, and `supabase/`. Run Expo from this folder, **not** from `backend/`.
 
-Keep the committed dependency versions. If `npm ci` reports mismatched or missing lockfiles, ask the developer for matching package files rather than upgrading packages.
+Retain the committed package versions and lockfile. If `npm ci` reports a package/lockfile mismatch, coordinate with the team. Do not upgrade Expo or run `npm audit fix --force` as a setup step.
 
-Do not run `npm audit fix --force` as a setup step.
+### 3. Shared Supabase Configuration
 
-## 3. Install and Start PostgreSQL
-
-### macOS
-
-Install [Postgres.app](https://postgresapp.com/documentation/install.html) in Applications, launch it, and initialize/start a local server.
-
-Add its command-line tools to your shell PATH using the linked instructions. Reopen your terminal and check:
-
-```sh
-psql --version
-whoami
-```
-
-With the usual Postgres.app setup, the database username matches your Mac short account name. Use your actual database account if configured differently.
-
-### Windows
-
-Install PostgreSQL through [the official Windows download page](https://www.postgresql.org/download/windows/), including the server and command-line tools.
-
-Save the password you choose for the `postgres` account.
-
-Add your installed PostgreSQL `bin` directory to your user PATH, restart the terminal, and verify:
-
-```sh
-psql --version
-```
-
-Confirm the PostgreSQL service is running in Windows Services.
-
-Use your actual installation folder and version, not another teammate's path.
-
-### Create and Seed the Database
-
-From the project root, on macOS with the default local account:
-
-```sh
-createdb ez_healthcare_demo
-psql -d ez_healthcare_demo -v ON_ERROR_STOP=1 -f database/setup.sql
-psql -d ez_healthcare_demo -v ON_ERROR_STOP=1 -f database/seed-sample-mode.sql
-```
-
-On Windows using the `postgres` account:
-
-```sh
-createdb -h localhost -p 5432 -U postgres -W ez_healthcare_demo
-psql -h localhost -p 5432 -U postgres -W -d ez_healthcare_demo -v ON_ERROR_STOP=1 -f database/setup.sql
-psql -h localhost -p 5432 -U postgres -W -d ez_healthcare_demo -v ON_ERROR_STOP=1 -f database/seed-sample-mode.sql
-```
-
-Enter the database password when prompted.
-
-If the database already exists, skip `createdb`.
-
-If the original setup was already completed, do not repeat it just to install Sample Data Mode. Run only the new seed script.
-
-| SQL File | Purpose |
-| --- | --- |
-| `database/setup.sql` | Original local user, accessibility, medication, and appointment tables |
-| `database/seed-sample-mode.sql` | Fictional medication, provider, and vital-sign payloads for the shared screens |
-| `database/seed-demo.sql` | Older standalone demo; not needed by the new modes |
-
-The new seed script should print `COMMIT` and three section rows:
-
-- `medications`
-- `providers`
-- `vitals`
-
-It creates `ez_sample_payloads` and updates its three fictional fixtures when rerun. It does not replace the original application tables.
-
-Do not put real patient data into the sample table.
-
-## 4. Configure the Backend
-
-Create `backend/.env`.
-
-The filename must be exactly `.env`, not `backend.env` or `.env.txt`.
-
-```dotenv
-PORT=3001
-PGHOST=localhost
-PGPORT=5432
-PGDATABASE=ez_healthcare_demo
-PGUSER=YOUR_LOCAL_DATABASE_USERNAME
-
-# Add this if your database requires a password:
-# PGPASSWORD="YOUR_LOCAL_DATABASE_PASSWORD"
-
-EPIC_CLIENT_ID=YOUR_TEAM_NON_PRODUCTION_CLIENT_ID
-EPIC_REDIRECT_URI=http://localhost:3001/api/epic/callback
-EPIC_FHIR_BASE_URL=https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4
-```
-
-Replace the username and client ID placeholders.
-
-Windows installer setups commonly use `postgres` as the database username.
-
-Obtain the team's registered non-production client ID from the project developer. Do not create a new registration unnecessarily.
-
-Keep the callback and sandbox URLs exactly as shown: the current backend validates them. Do not change the callback to the Android emulator address.
-
-**Even Sample Data Mode currently requires the Epic settings to be present**, because the backend imports the Epic router at startup. Sample requests themselves do not sign in or contact Epic.
-
-Keep `.env` and `node_modules` out of Git. Do not commit passwords, tokens, session cookies, or authorization codes. Keep credentials out of frontend code.
-
-## 5. Set Up the Android Emulator
-
-Install [Android Studio](https://developer.android.com/studio).
-
-Follow [Expo's Android environment guide](https://docs.expo.dev/workflow/android-studio-emulator/) for your operating system, including its JDK and SDK prerequisites.
-
-The guide specifies JDK 17. Avoid using an incompatible newer JDK for the project's Gradle build.
-
-In Android Studio:
-
-1. Complete the setup wizard and SDK downloads.
-2. Open SDK Manager and note the Android SDK Location.
-3. Install Android SDK Platform-Tools and Android Emulator, plus the SDK/build tools required by the project build.
-4. Open Device Manager.
-5. Create a Pixel virtual device with a compatible stable system image.
-6. Start the device.
-7. Wait until the Android home screen appears.
-
-Configure `ANDROID_HOME` and add the SDK's `platform-tools` and `emulator` folders to PATH using the environment guide.
-
-On macOS, the usual SDK location is:
+The shared project URL and publishable key are committed in:
 
 ```text
-$HOME/Library/Android/sdk
+src/config/publicConfig.ts
 ```
 
-On Windows, use the actual path from SDK Manager. Do not copy a teammate's username into it.
+Both authentication and hosted record requests use this configuration. Teammates do **not** need their own Supabase project or a local `.env` containing those two values.
 
-Verify in a newly opened terminal:
+The URL and publishable key are public client configuration, not administrator credentials. Access control must still be enforced by authentication, database permissions, and backend checks.
+
+Keep service-role keys, SMTP passwords, encryption keys, and Epic access tokens out of frontend code and Git. SMTP credentials belong in hosted Auth settings; Edge Function secrets belong in hosted function settings.
+
+### 4. Configure Android Tools
+
+Start a device from Android Studio's **Device Manager** and wait for its home screen.
+
+On macOS, with the SDK installed in its usual location, run these commands in the terminal you will use to build:
 
 ```sh
-java -version
-adb --version
-adb devices
+export JAVA_HOME="$(/usr/libexec/java_home -v 17)"
+export ANDROID_HOME="$HOME/Library/Android/sdk"
+export PATH="$JAVA_HOME/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$PATH"
 ```
 
-The emulator should appear with status `device`.
-
-## 6. Build the Development App Once
-
-If the current EZ Healthcare development build is already installed, skip this section.
-
-With the emulator running, from the project root:
-
-```sh
-npx expo run:android
-```
-
-This builds and installs the native app. The first build can take time to download dependencies.
-
-See [Expo's development-build guide](https://docs.expo.dev/develop/development-builds/introduction/) for background.
-
-The project already includes `expo-dev-client` and its custom `ezhealthcare` scheme. Do not create another Expo project.
-
-JavaScript/TypeScript screen changes normally need a reload, not another native build. Native dependency or configuration changes may require rebuilding.
-
-## 7. Start the Application Each Session
-
-Keep PostgreSQL, the emulator, the backend, and Expo running.
-
-Use separate terminal tabs.
-
-### Terminal 1: Backend
-
-From the project root:
-
-```sh
-cd backend
-npm run dev
-```
-
-If already in `backend`, run only:
-
-```sh
-npm run dev
-```
-
-Wait for the PostgreSQL connection and backend startup messages. Keep this terminal open.
-
-In your computer browser, open:
-
-[http://localhost:3001/api/health](http://localhost:3001/api/health)
-
-Expect:
-
-```json
-{
-  "status": "ok",
-  "message": "EZ Healthcare backend is running!",
-  "database": "connected"
-}
-```
-
-This checks the server/database connection, not whether sample tables exist or Epic authorization works.
-
-### Terminal 2: Emulator Port Forwarding
-
-With the emulator running:
-
-```sh
-adb reverse tcp:8081 tcp:8081
-adb reverse tcp:3001 tcp:3001
-```
-
-Repeat after restarting the emulator if necessary.
-
-- Port `8081` is Expo.
-- Port `3001` is the backend.
-- Forwarding `3001` supports the registered localhost callback in the emulator browser.
-
-### Terminal 3: Expo
-
-From the project root:
-
-```sh
-npx expo start --dev-client --localhost
-```
-
-Press **a** in this terminal to open Android.
-
-Confirm the terminal says it is using a development build. Keep it running.
-
-The first native-build command may already have started Expo. Stop that instance before starting another.
-
-Keep one Expo server on `8081` and one backend on `3001`.
-
-## 8. Use Sample Data Mode
-
-1. On Welcome, select **Sample Data Mode**.
-2. Tap **Continue**.
-3. Tap **Medications** to retrieve Taylor Sample's fictional medication orders.
-4. Return Home and open **My Providers** to view fictional provider names.
-5. Open **My Health** to view fictional vital readings.
-
-No Epic login is needed.
-
-Once dependencies and builds are installed, this mode does not need Epic internet access, but it still needs the local Express server and PostgreSQL.
-
-Records are clearly labeled as fictional. The screens are the same screens used by API Mode, not a separate demo layout.
-
-## 9. Use API Mode
-
-1. On Welcome, select **API Mode**.
-2. Tap **Continue**.
-3. Open **Medications → Connect to Epic**.
-4. Complete the Epic sandbox login and consent screens in the emulator's browser session.
-5. Approve access and use the return-to-app action if displayed.
-6. After returning to EZ Healthcare, verify the patient, medication source, retrieval time, and order status.
-7. Open **My Providers** and **My Health** to request their API-backed information using the current mobile connection.
-
-Use the team's verified synthetic test account, not a personal patient account.
-
-The previously used test username is `fhirderrick` and the password is 'epicepic1'.
-
-Authorization temporarily uses the browser. The return link brings the user back to the app.
-
-The normal mobile flow no longer requires manually copying a pairing code. The backend still uses a temporary code internally to complete the mobile handoff.
-
-Epic login authorizes access to sandbox data; it is not a complete EZ Healthcare account-login implementation.
-
-### API Limitations Observed During Development
-
-- Medication retrieval has worked with the synthetic test account.
-- Practitioner-detail requests have returned HTTP 403. A linked provider may therefore show only a generic display name such as “Physician.”
-- Vital-sign requests have timed out. A timeout does not prove that no vital data exists.
-- Epic's login page has sometimes remained white inside emulator Chrome while loading on the host computer. The cause has not been established.
-
-Sample mode is an explicit user choice, never an automatic fallback for these failures.
-
-## 10. Switch Modes
-
-Tap the mode indicator / **Change** on Home to return to Welcome. Select a mode and tap **Continue**.
-
-Selecting a mode clears the app's in-memory mobile token and remounts navigation to prevent previously displayed data from carrying over.
-
-API Mode requires a new connection after switching. Mode selection is not permanently stored.
-
-This local reset is not production token revocation and does not necessarily clear Epic browser cookies.
-
-Backend restarts also clear in-memory authorization, session, and snapshot state. Avoid editing backend files while demonstrating an active API session: the development watcher may restart it.
-
-The old `/demo` route now opens Welcome. `src/app/demo.tsx` being a one-line re-export is intentional.
-
-The unused `ModeChoices.tsx` and old seed file are not required for the current flow.
-
-## 11. Troubleshooting
-
-### “Sample Data Is Unavailable”
-
-From the project root, run:
-
-```sh
-psql -d ez_healthcare_demo -v ON_ERROR_STOP=1 -f database/seed-sample-mode.sql
-```
-
-Use your PostgreSQL username/host options if required.
-
-Check this endpoint in the host browser:
-
-[http://localhost:3001/api/sample/medications](http://localhost:3001/api/sample/medications)
-
-Then tap **Try Again** in the app.
-
-If it still fails, inspect the backend line starting:
-
-```text
-Sample data lookup failed:
-```
-
-Confirm the seed command and `.env` point to the same database and server.
-
-### “localhost Refused to Connect” or Connection to 10.0.2.2:3001 Failed
-
-Verify the backend terminal is running and the health endpoint works on the host computer.
-
-Then open this address in emulator Chrome:
-
-```text
-http://10.0.2.2:3001/api/health
-```
-
-The mobile code uses `10.0.2.2` to reach the host.
-
-The Epic callback uses localhost through port forwarding.
-
-Keep these addresses distinct. Do not change the registered callback casually.
-
-### Port 3001 or 8081 Already in Use
-
-Find the terminal already running that service and reuse it, or stop it with **Ctrl+C** before restarting.
-
-Do not launch Expo inside `backend`, and do not switch ports just to hide the conflict.
-
-### Development Build Launcher or White App Screen
-
-Ensure Expo is running from the root with:
-
-```sh
-npx expo start --dev-client --localhost
-```
-
-Set the `8081` port forwarding and press **a**.
-
-Check the Expo terminal for the first error, including its filename and line number. A syntax error is not solved by changing the network.
-
-If necessary, stop Expo and restart with:
-
-```sh
-npx expo start --dev-client --localhost --clear
-```
-
-### White Epic Login Page Only in Emulator Chrome
-
-First distinguish this from an app-loading failure.
-
-1. Confirm local health works inside the emulator.
-2. Confirm the browser has navigated to Epic.
-3. Compare the page on the host browser.
-4. Inspect emulator Chrome through the host Chrome page:
-
-```text
-chrome://inspect/#devices
-```
-
-Report the first relevant network or console error, excluding tokens and authorization URLs.
-
-Do not assume the campus network is blocking the emulator without diagnostic evidence.
-
-Sample Mode can still be tested separately.
-
-### Android SDK Location Not Found
-
-Use the SDK Location shown by Android Studio.
-
-Configure `ANDROID_HOME`, or set `sdk.dir` in `android/local.properties` to the actual local SDK path.
-
-Keep this machine-specific file out of Git.
-
-### Unsupported Java Class-File Version
+On Windows, set `JAVA_HOME` and `ANDROID_HOME` to the actual installed JDK and SDK locations and add their command-line tools to PATH. Reopen the terminal afterward. PowerShell users can use `npm.cmd` and `npx.cmd` if script execution blocks the `.ps1` launchers.
 
 Check:
 
 ```sh
+node --version
 java -version
+adb devices
 ```
 
-Run this in the same terminal doing the build.
+The emulator or phone should appear with status `device`.
 
-Use the compatible JDK configured for this project rather than whichever newer JDK your shell happens to select. See the Android setup guide above.
+### 5. Build the Development App
 
-### Epic 401, 403, or Timeout
-
-- **401:** Reconnect through Medications. The connection may have expired or the backend restarted.
-- **403:** Inspect granted permissions and the selected Epic API. An authorization failure is not proof that data is absent.
-- **Timeout:** Inspect the request and logs, then retry later. Do not label it “no records.”
-
-### “Cannot Find Module mobileDemo.js”
-
-Confirm this file exists:
-
-```text
-backend/src/mobileDemo.ts
-```
-
-The `.js` suffix in this project's TypeScript imports is intentional.
-
-Start with:
+For first setup, or after pulling changes to native libraries or config plugins:
 
 ```sh
-npm run dev
+npx expo prebuild --platform android
+npx expo run:android
 ```
 
-Do not rename imports to `.ts.js`.
+This generates/updates the local Android project, builds the app, installs it, and normally starts Metro. Keep the emulator and Metro running.
 
-### IntelliJ Warnings
+**Voice and notifications require the matching native development build.** Pulling JavaScript and pressing `a` does not add newly introduced native modules to an older installed app.
 
-**“No data sources are configured”** is an editor SQL-tool warning. Use the documented `psql` command.
+Do not use `prebuild --clean`, delete native folders, or uninstall the app as the first troubleshooting step. Native regeneration can overwrite manual native changes, and uninstalling removes local data. Coordinate changes to native configuration with the team.
 
-**“Throw of exception caught locally”** describes the deliberate try/catch error-handling pattern and is not itself a compilation failure.
+### 6. Normal Daily Startup
 
-### Windows PowerShell Blocks npm.ps1
+If no native dependencies or native configuration changed, start the emulator and run:
 
-Use Command Prompt, or invoke `npm.cmd` and `npx.cmd` from PowerShell.
+```sh
+npm start
+```
 
-## 12. Validation Checklist
+Press **a** in the Expo terminal to open Android. `npm start` uses the development client, not Expo Go.
 
-From the project root:
+If the emulator cannot reach Metro over the normal connection, with the device connected to ADB:
+
+```sh
+adb reverse tcp:8081 tcp:8081
+npx expo start --dev-client --localhost
+```
+
+Stop the previous Metro server before starting another. Port `8081` is Metro; the hosted backend does not use local port `3001`.
+
+## Use the App
+
+### Sample Data Mode — Recommended for the Presentation
+
+1. Sign in to EZ Healthcare with a confirmed account, or complete signup and email verification.
+2. Select **Sample Data Mode** and tap **Continue**.
+3. Explore Medications, Appointments, Test Results, My Providers, Insurance, and Messages.
+4. Open **Profile** for fictional patient demographics and vital signs. There is no separate My Health Home tile; the older route remains an alias.
+5. Try a sample appointment or simulated message. No clinic or care team is contacted.
+6. Test reminders with fictional information and allow notifications if desired.
+7. Use Share to generate a preview before explicitly opening the device share menu.
+
+After login, bundled records and local sample edits do not need Epic, Express, or a local database. This is not a fully offline login system.
+
+Profile shows the selected fictional/sandbox patient's information, not automatically the name or date of birth of the person who created the EZ Healthcare account.
+
+### API Mode — Integration Testing
+
+1. Sign in to EZ Healthcare.
+2. Choose **API Mode** and tap **Continue**.
+3. Tap **Connect / Manage Epic** on Home.
+4. Complete the sandbox login and consent in the browser.
+5. Return to the app and confirm the connection, then open a record screen.
+
+Use only the team's approved synthetic Epic test account. Obtain current test credentials from the team rather than committing passwords to the README. EZ Healthcare login and Epic authorization are separate steps.
+
+API requests use the hosted `healthcare` function. Appointments are read-only; Messages reports unsupported MyChart integration. Provider details may be incomplete. Vital signs, labs, and insurance depend on sandbox records and permissions.
+
+Known development problems have included Epic HTTP 500 responses, provider-detail HTTP 403 responses, request timeouts, and emulator browser/network failures. These are distinct failure types: none automatically proves there are no records.
+
+API connections expire and may require reauthorization. The current backend does not implement automatic refresh-token renewal. Keep Sample Data Mode available for the presentation.
+
+### Switch Modes or Log Out
+
+Use the mode label and **Change** on Home to return to the selector. Selecting a mode resets transient mobile connection state and remounts navigation so old screen data is not retained. It does not erase saved local sample appointments or reminders.
+
+This UI reset is not itself remote Epic-token revocation. Use the connection screen to disconnect; logout also attempts hosted disconnection and clears the local app session. Epic browser cookies may still remain.
+
+## Build and Share the Android APK
+
+The tester build is a **standalone Android APK**, not an SDK and not the development-client launcher. It includes its JavaScript bundle and does not require a teammate's laptop, Metro, Express, or local PostgreSQL to remain running.
+
+Internet is still required for account authentication and API Mode. Voice-service requirements vary by device. Use Sample Data Mode for the distributed demo.
+
+### Maintainer: Create a Preview Build
+
+The committed `eas.json` already has a `preview` profile with internal distribution, `developmentClient: false`, and Android APK output.
+
+From a reviewed, tested checkout:
+
+```sh
+npx eas-cli login
+npx eas-cli build --platform android --profile preview
+```
+
+On first use, coordinate Expo project linking and Android signing credentials with the team. Use one shared Expo project; do not independently initialize competing projects. Keep signing credentials private.
+
+Download the finished APK from the build page and share its download link or attach the APK to the team's chosen distribution location. Do not claim an APK is available until a build succeeds and its actual link is published.
+
+### Tester: Install and Run
+
+- **Android phone:** Download the APK, allow installation from that source if Android requests it, and install. Only install the APK supplied by the team.
+- **Android emulator:** Start a compatible emulator and drag the APK onto its window, or use `adb install -r path/to/EZ-Healthcare.apk`.
+- Open EZ Healthcare, sign in or sign up, and choose **Sample Data Mode**.
+
+An APK cannot run directly on macOS, Windows, or an iPhone. A Mac/Windows tester needs an Android emulator. Installing a new APK with a different signing key may require uninstalling the existing app, which removes its local data.
+
+## Hosted Supabase and Epic Setup
+
+**Maintainer-only setup. Ordinary teammates and APK testers do not need to repeat it.** Repository files do not prove that the hosted deployment or email configuration is complete; verify these before inviting testers.
+
+### Supabase Authentication and Email
+
+1. Use the team's shared Supabase project and enable email/password signup.
+2. Keep signup confirmation enabled for the verification flow.
+3. Configure an approved SMTP provider in Supabase Auth before allowing external testers to create accounts. The default mail service is restricted and is not a general-purpose public signup email service.
+4. Configure the **Confirm signup** email template to show a numeric code using `{{ .Token }}`. For example:
+
+```html
+<h2>Verify your EZ Healthcare account</h2>
+<p>Enter this code in the EZ Healthcare app:</p>
+<p><strong>{{ .Token }}</strong></p>
+<p>If you did not request this account, ignore this email.</p>
+```
+
+5. Test signup, email receipt, code verification, resend, logout, and a fresh login using a permitted test account.
+
+The app's verification screen calls Supabase's email-code verification API. A default browser link redirecting to `localhost:3000` is not the intended verification experience for this mobile flow. Dashboard template and SMTP changes are separate from copying app source files.
+
+New Free projects using default SMTP may need custom SMTP before email-template customization is available. Configure sender credentials only in hosted Auth settings; never add them to the APK or repository. Do not make testers Supabase project administrators merely to receive verification emails.
+
+### Epic Database Migration and Function
+
+The migration is:
+
+```text
+supabase/migrations/202611210001_epic_hosting.sql
+```
+
+It creates restricted authorization-attempt, encrypted-connection, and rate-limit storage. It does not create cloud tables for sample appointment/message edits or automatically synchronize local reminders.
+
+A maintainer with access can link the repository to the existing project and review pending migrations:
+
+```sh
+npx supabase login
+npx supabase link --project-ref mmurlxdjbzvctegytiao
+npx supabase db push --dry-run
+```
+
+Review the output with the team before applying pending migrations:
+
+```sh
+npx supabase db push
+```
+
+If the SQL was already applied through the Dashboard SQL Editor, reconcile migration history before using CLI database pushes. Do not blindly rerun or reset the hosted database.
+
+Configure these Edge Function secrets in the hosted dashboard:
+
+| Name | Value |
+| --- | --- |
+| `EPIC_CLIENT_ID` | Team non-production Epic client ID |
+| `EPIC_TOKEN_ENCRYPTION_KEY` | Private, randomly generated 64-character hexadecimal value |
+| `EPIC_EXTRA_SCOPES` | Optional additional scopes supported by the registration |
+
+Supabase provides the function's platform URL and service-role environment variables. Do not place administrator keys in `src/config/publicConfig.ts`. Changing the encryption key invalidates the ability to decrypt previously stored connections; coordinate rotation and reconnect affected test users.
+
+Deploy from the repository root after the migration and secrets are configured:
+
+```sh
+npx supabase functions deploy healthcare --use-api
+```
+
+Both files must be present before deployment:
+
+```text
+supabase/functions/healthcare/index.ts
+supabase/functions/_shared/fhir.ts
+```
+
+The function uses `verify_jwt = false` in `supabase/config.toml` to allow Epic's browser callback. Other implemented endpoints verify the Supabase user in function code. Do not remove those checks or expose the private tables directly to mobile clients.
+
+### Epic App Registration
+
+Register this hosted callback exactly for the team's non-production Epic app:
+
+```text
+https://mmurlxdjbzvctegytiao.supabase.co/functions/v1/healthcare/callback
+```
+
+The backend returns the browser to:
+
+```text
+ezhealthcare://connect-epic
+```
+
+These are different: the HTTPS URL is Epic's registered callback; the custom scheme reopens the installed mobile app. Do not replace the hosted callback with emulator localhost.
+
+Review registration support for Patient, MedicationRequest, Medication, Observation, Appointment, Coverage, and any permitted Practitioner lookup. The current code requests read access, not appointment booking or messaging write operations. Selecting an API in the Epic dashboard does not guarantee the requested scope will be granted; inspect authorization results and reconnect after registration changes.
+
+## Troubleshooting
+
+### Cannot Find Native Module `ExpoSpeech`, Speech Recognition, Notifications, or AsyncStorage
+
+The installed development app may predate a new native dependency. Stop Metro, keep the emulator open, then run:
+
+```sh
+npm ci
+npx expo prebuild --platform android
+npx expo run:android
+```
+
+Clearing Metro's cache or pressing `a` alone does not install native modules. Keep the committed dependency versions.
+
+### White App Screen or Bundling Error
+
+Check the first error in the Expo terminal, including the filename and line number. Syntax errors and missing native modules need different fixes from network problems.
+
+For a stale JavaScript cache, stop Metro and restart:
+
+```sh
+npx expo start --dev-client --clear
+```
+
+For local Metro connectivity, use the `8081` ADB reverse instructions above. Do not start a second server to hide a port conflict.
+
+### Supabase `UnknownHostException` or Emulator Has No Internet
+
+Compare connectivity on the computer and inside the emulator. A working computer browser does not prove the emulator has working DNS or HTTPS.
+
+This address can help check basic reachability:
+
+```text
+https://mmurlxdjbzvctegytiao.supabase.co/auth/v1/health
+```
+
+A JSON response saying **No API key found** means that request reached Supabase; it is not a successful authenticated app login. A black browser screen alone does not identify the cause.
+
+If emulator DNS is the problem, close the existing emulator normally and start its AVD with explicit DNS. On macOS, for an AVD actually named `Pixel_10`:
+
+```sh
+"$HOME/Library/Android/sdk/emulator/emulator" -avd Pixel_10 -dns-server 8.8.8.8,1.1.1.1 -no-snapshot-load
+```
+
+Use your own AVD name. This does not intentionally wipe its stored data. Networks may restrict public DNS, so retest rather than assuming this resolves every connectivity failure.
+
+### `adb: command not found` or Android SDK Location Not Found
+
+Use Android Studio's SDK Location, configure `ANDROID_HOME`, and add `platform-tools` to PATH. On a default macOS install, ADB can also be called directly:
+
+```sh
+"$HOME/Library/Android/sdk/platform-tools/adb" devices
+```
+
+Keep machine-specific SDK paths and `android/local.properties` out of Git.
+
+### Java, Gradle, or Kotlin Build Failure
+
+Check `java -version` in the same terminal doing the build. Use the project's compatible JDK and SDK tools. Read the first **What went wrong** section; the final non-zero-exit stack trace is usually only a summary.
+
+Do not independently upgrade Gradle, Kotlin, Expo, and React Native to unrelated latest versions. Coordinate native-template and dependency fixes with the team.
+
+### Signup Email Missing or Verification Code Rejected
+
+Check the latest email and spam folder. Use Resend Code after its cooldown, then enter the newest code. Codes can expire or be single-use.
+
+Ask the maintainer to inspect SMTP configuration, email templates, Auth logs, and service rate limits. The app's resend timer does not override server limits. Do not disable verification or bypass route protection merely to conceal an email-delivery problem.
+
+### Hosted Function Deployment Says Entrypoint Does Not Exist
+
+Confirm `supabase/functions/healthcare/index.ts` exists in the checkout and run deployment from the project root. Do not replace the entire `supabase/` folder with a partial set of files.
+
+### Epic Fails to Connect or Records Do Not Load
+
+- Reconnect through **Connect / Manage Epic** after authorization expires.
+- Check hosted function logs and the registered callback when authorization fails.
+- HTTP 403 means access was denied; it does not prove the record is absent.
+- A timeout means the request did not finish; it is not an empty-result response.
+- HTTP 500 requires identifying whether Epic or the hosted function returned it. Do not assume a sandbox announcement proves an outage or fixes it.
+- If other websites also fail only inside the emulator, diagnose its network separately.
+- Choose Sample Data Mode for the presentation instead of presenting fabricated records as an API response.
+
+### Sample Records Ask for PostgreSQL or `localhost:3001`
+
+Those messages indicate older code or an older build. The current bundled sample flow does not require those services. Check the branch, installed APK, and Metro project folder before running legacy seed scripts.
+
+## Team Workflow
+
+Use feature branches and pull requests rather than pushing unfinished changes directly to `main`.
+
+```sh
+git switch -c your-name/feature-name
+```
+
+Before integrating new `main` changes, commit or safely stash your local work. Then, from your feature branch:
+
+```sh
+git fetch origin
+git merge origin/main
+```
+
+Resolve conflicts carefully, especially in `_layout.tsx`, shared screen components, authentication, voice hooks, and reminder lifecycle code. Preserve both teammates' features; do not accept an entire conflicting file without reviewing it.
+
+After installing changed dependencies and testing, push your branch and open a pull request:
+
+```sh
+git push -u origin your-name/feature-name
+```
+
+Keep actual `.env` files, passwords, private keys, authorization codes, APKs, and signing credentials out of source commits. Commit public configuration, safe `.env.example` placeholders, migrations, and function source.
+
+Adding `.env` to `.gitignore` does not untrack an already committed file. If the root `.env` is still tracked, remove only its Git tracking with `git rm --cached -- .env` and commit that removal; the local file remains. Rotate any private credentials that were actually exposed in repository history.
+
+## Validation Checklist
+
+Run from the project root:
 
 ```sh
 npm run typecheck
+npm run check:dependencies
 ```
 
-- [ ] Backend health reports database connected.
-- [ ] Welcome opens and both mode options are selectable.
-- [ ] All three sample screens load without Epic sign-in.
-- [ ] Mode switching removes the previous source's displayed records.
-- [ ] API Mode opens the existing Epic authorization flow.
-- [ ] Medication source, patient, dates, and statuses are displayed correctly.
-- [ ] API errors do not display sample records as if retrieved from Epic.
-- [ ] Existing accessibility and navigation behavior is rehearsed on the emulator.
+These checks do not replace native builds or real-device testing. Rehearse on the actual presentation phone and a fresh preview APK, not only inside Metro.
 
-The mode update passed frontend TypeScript checks and sample-route tests with a mocked database. Sample Data Mode was also confirmed working in local development.
-
-These checks do not constitute complete integration, accessibility, or production-readiness testing.
+- [ ] A fresh launch follows the expected login flow; record screens cannot bypass authentication.
+- [ ] Signup, email-code verification, resend, login, and logout work for an external test account.
+- [ ] Both modes use the same screens and clearly identify the record source.
+- [ ] All bundled sample sections load without Express or local PostgreSQL.
+- [ ] Sample appointments/messages persist for the same user on one installation without appearing in another user's local data.
+- [ ] Local-only data is not described as cross-device cloud synchronization.
+- [ ] Reminder permission, a test notification, dose tracking, and logout/account transitions behave correctly.
+- [ ] Ask EZ works with microphone permission, denial, typed commands, reading, and Stop Reading.
+- [ ] Voice settings and supported readout windows behave as expected.
+- [ ] Accessibility routes, including Voice Settings, have appropriate signed-out behavior and are tested after merges.
+- [ ] Profile displays the selected fictional/sandbox patient's demographics and vitals.
+- [ ] Lab status colors include meaningful text labels; source warnings remain visible.
+- [ ] Share requires selection, preview, and confirmation before opening another app.
+- [ ] API Mode reports permission, connection, empty-result, and unsupported-feature states honestly.
+- [ ] The release APK runs without Metro and is tested on the teammate's Android phone.
+- [ ] No real medical information or private service credentials are included in the demo.
 
 ## Key Files
 
 | Path | Purpose |
 | --- | --- |
-| `src/app/index.tsx`, `src/app/welcome.tsx` | Welcome routes |
-| `src/screens/WelcomeScreen.tsx` | Mode-selection interface |
-| `src/services/dataMode.ts` | Selected mode, session reset, and change notifications |
-| `src/app/home.tsx`, `src/screens/HomeScreen.tsx` | Shared Home screen |
-| `src/screens/MedicationsScreen.tsx` | Shared medications screen and Epic mobile connection |
-| `src/app/my-providers.tsx`, `src/app/my-health.tsx` | Shared provider/vital screens |
-| `backend/src/server.ts` | Express startup and route registration |
-| `backend/src/sampleData.ts` | Fictional PostgreSQL-backed endpoints |
-| `backend/src/epic.ts`, `backend/src/nativeAuth.ts` | Epic authorization and mobile handoff |
-| `backend/src/mobileDemo.ts`, `backend/src/vitals.ts` | Epic-backed record handling |
-| `database/seed-sample-mode.sql` | Fictional fixtures for Sample Data Mode |
+| `src/app/_layout.tsx` | Auth-aware navigation and reminder-notification lifecycle |
+| `src/screens/LoginScreen.tsx`, `SignUpScreen.tsx`, `VerifyEmailScreen.tsx` | Account and email-code flow |
+| `src/screens/WelcomeScreen.tsx` | Sample/API selector after login |
+| `src/screens/HomeScreen.tsx` | Services, Profile, Epic connection, Help, and Ask EZ entry points |
+| `src/config/publicConfig.ts` | Shared public Supabase configuration |
+| `src/services/supabase.ts` | Supabase Auth client and session configuration |
+| `src/services/healthcare.ts` | Shared record loading and local sample edits |
+| `src/services/accountStorage.ts` | Account/mode-scoped local storage |
+| `src/data/sample.ts` | Bundled fictional FHIR-shaped resources |
+| `src/data/fhir.ts` | Mobile bridge to shared FHIR parsing |
+| `src/services/epicConnection.ts` | Hosted authorization and mobile return handling |
+| `src/services/reminders.ts` | Local reminder storage, dose logs, and notification scheduling |
+| `src/components/AskEzPanel.tsx` | Microphone/typed-command interface |
+| `src/services/voiceCommands.ts` | Phrase matching and supported commands |
+| `src/services/voiceSettings.ts`, `screenSummary.ts`, `recordReadout.ts` | Voice preferences and screen summaries/readouts |
+| `supabase/functions/healthcare/index.ts` | Hosted Epic authorization and FHIR requests |
+| `supabase/functions/_shared/fhir.ts` | Shared FHIR normalization and validation |
+| `supabase/migrations/202611210001_epic_hosting.sql` | Restricted hosted authorization storage |
+| `supabase/config.toml` | Function gateway configuration |
+| `eas.json` | Standalone preview APK build profile |
 
-## Remaining Work
+## Official References
 
-- Build Messages, Test Results, Insurance, and Share.
-- Integrate team appointment and medication-reminder work.
-- Continue voice navigation development.
-- Implement EZ Healthcare account authentication.
-- Continue accessibility, device, and integration testing.
-
-For new record features, use shared screens with separate sample and API sources.
-
-Verify supported Epic endpoints and permissions before promising live integration. Unsupported features must be labeled honestly rather than simulated in API Mode.
+- [Node.js downloads](https://nodejs.org/en/download)
+- [Android Studio](https://developer.android.com/studio)
+- [Expo Android setup](https://docs.expo.dev/workflow/android-studio-emulator/)
+- [Expo development builds and native rebuilds](https://docs.expo.dev/develop/development-builds/use-development-builds/)
+- [Expo APK builds and installation](https://docs.expo.dev/build-reference/apk/)
+- [Android emulator networking](https://developer.android.com/studio/run/emulator-networking)
+- [Supabase Auth email templates](https://supabase.com/docs/guides/auth/auth-email-templates)
+- [Supabase custom SMTP](https://supabase.com/docs/guides/auth/auth-smtp)
+- [Supabase Free-tier email-template restrictions](https://supabase.com/changelog/46599-changes-to-email-template-customisation-on-free-tier)
+- [Supabase function deployment](https://supabase.com/docs/guides/functions/deploy)
+- [Epic on FHIR](https://fhir.epic.com/)
