@@ -2,8 +2,6 @@
 
 EZ Healthcare is a BCS 430 senior-project mobile prototype designed to make healthcare information easier to navigate for older adults and people with accessibility needs. The interface emphasizes large controls, clear labels, simple navigation, and optional voice assistance.
 
-**Demonstration only. Use fictional sample records and Epic sandbox accounts—not real patient information. This app does not provide medical advice, diagnosis, treatment, or emergency services.**
-
 ## Current Demo Plan
 
 The final presentation and shared Android APK are intended to use **Sample Data Mode**. API Mode remains available for Epic sandbox integration testing, but Epic authorization and some record requests have experienced errors during development. Do not depend on API Mode for an uninterrupted presentation.
